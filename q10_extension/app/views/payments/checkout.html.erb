@@ -1,0 +1,13 @@
+<div class="checkout-page">
+  <h1>Listo para pagar</h1>
+  <p class="amount">Monto: <strong><%= number_to_currency(@amount, unit: "$", separator: ",", delimiter: ".") %></strong></p>
+
+  <div class="payment-actions">
+    <a href="<%= @payment_url %>" class="btn btn-pay" target="_blank" rel="noopener noreferrer">
+      Ir a pagar con Pagomedios
+    </a>
+    <p class="hint">Se abrirá la pasarela de pago en una nueva pestaña.</p>
+  </div>
+
+  <p class="back-link"><%= link_to "← Crear otro pago", pagar_path %></p>
+</div>

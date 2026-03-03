@@ -10,6 +10,13 @@ module ActiveSupport
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
     fixtures :all
 
-    # Add more helper methods to be used by all tests here...
+    # Stub temporal para reemplazar un método de clase durante un bloque (compatible con Minitest).
+    def stub_class_method(klass, method_name, return_value, &block)
+      original = klass.method(method_name)
+      klass.define_singleton_method(method_name) { |*_args, **_kwargs| return_value }
+      block.call
+    ensure
+      klass.define_singleton_method(method_name) { |*args, **kwargs| original.call(*args, **kwargs) }
+    end
   end
 end
