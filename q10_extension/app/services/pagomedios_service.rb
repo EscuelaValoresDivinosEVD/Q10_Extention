@@ -24,8 +24,9 @@ class PagomediosService
   # @param currency [String] Código ISO de moneda (ej: "USD")
   # @param reference [String] Referencia única del pago (opcional)
   # @param description [String] Descripción del pago (opcional)
+  # @param notify_url [String] URL absoluta del webhook (ej. payments_webhook_url). Si se pasa, Pagomedios hará POST aquí al cambiar el estado del pago.
   # @return [Hash] { success: true, payment_url: "...", id: "..." } o { success: false, error: "..." }
-  def create_payment(amount:, currency: "USD", reference: nil, description: nil)
+  def create_payment(amount:, currency: "USD", reference: nil, description: nil, notify_url: nil)
     reference ||= "PAGO-#{Time.current.to_i}"
     description ||= "Pago"
 
@@ -47,6 +48,7 @@ class PagomediosService
       has_safetypay: false,
       custom_value: reference.to_s
     }
+    body[:notify_url] = notify_url if notify_url.present?
 
     endpoint = "#{BASE_URL}/payment-links"
     Rails.logger.info "[Pagomedios] POST #{endpoint} body=#{body.to_json}"

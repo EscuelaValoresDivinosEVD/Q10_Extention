@@ -9,6 +9,9 @@ Rails.application.routes.draw do
   get "pagar", to: "payments#new", as: :payments
   post "pagar", to: "payments#create"
 
+  # Webhook: Pagomedios envía POST aquí cuando el pago es autorizado/rechazado
+  post "payments/webhook", to: "payments#webhook", as: :payments_webhook
+
   # Defines the root path route ("/")
   # root "posts#index"
 end
