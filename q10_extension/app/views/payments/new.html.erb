@@ -6,7 +6,7 @@
     <div class="flash alert" role="alert"><%= flash[:alert] %></div>
   <% end %>
 
-  <%= form_with url: pagar_path, method: :post, local: true, class: "payment-form" do |f| %>
+  <%= form_with url: pagar_path, method: :post, local: true, data: { turbo: false }, class: "payment-form" do |f| %>
     <div class="field">
       <label for="amount">Monto a pagar *</label>
       <input

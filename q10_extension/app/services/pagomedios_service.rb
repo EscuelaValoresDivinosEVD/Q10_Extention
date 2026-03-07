@@ -1,10 +1,14 @@
 # frozen_string_literal: true
 
+require "net/http"
+require "uri"
+require "json"
+
 # Servicio para integrar con Pagomedios API v2
 # Documentación: https://docs.abitmedia.cloud/pagomedios-referencia-api-v2/
-# Ajusta el endpoint y el body según la documentación oficial (Solicitudes de pago / Links de pago)
+# OpenAPI: https://api.abitmedia.cloud/pagomedios/v2 (payment-links, payment-requests)
 class PagomediosService
-  BASE_URL = "https://services.abitmedia.cloud/pagomedios-v2"
+  BASE_URL = "https://api.abitmedia.cloud/pagomedios/v2"
 
   class Error < StandardError; end
   class ApiError < Error; end
@@ -12,6 +16,7 @@ class PagomediosService
   def initialize
     @token = ENV.fetch("PAGOMEDIOS_API_TOKEN", nil)
     raise Error, "PAGOMEDIOS_API_TOKEN no está configurado en .env" if @token.blank?
+    Rails.logger.info "[Pagomedios] Service initialized (token present, length=#{@token.length})"
   end
 
   # Crea una solicitud de pago o link de pago y devuelve la URL para que el usuario pague.
@@ -24,26 +29,36 @@ class PagomediosService
     reference ||= "PAGO-#{Time.current.to_i}"
     description ||= "Pago"
 
-    # Monto en centavos/unidades mínimas si la API lo requiere (revisar documentación)
-    amount_cents = (amount.to_f * 100).to_i
+    Rails.logger.info "[Pagomedios] create_payment params: amount=#{amount}, currency=#{currency}, reference=#{reference}, description=#{description}"
 
+    amount_f = amount.to_f.round(2)
+    # API requiere: amount = amount_with_tax + amount_without_tax + tax_value (todos con 2 decimales)
     body = {
-      monto: amount.to_f,
-      monto_centavos: amount_cents,
-      moneda: currency,
-      referencia: reference,
-      descripcion: description
-    }.compact
+      integration: true,
+      generate_invoice: 0,
+      description: description.to_s,
+      amount: amount_f,
+      amount_with_tax: 0,
+      amount_without_tax: amount_f,
+      tax_value: 0,
+      has_cards: 1,
+      has_de_una: 0,
+      has_paypal: 0,
+      has_safetypay: false,
+      custom_value: reference.to_s
+    }
 
-    # Endpoint típico para "Solicitudes de pago" o "Links de pago"
-    # Verificar en docs: https://docs.abitmedia.cloud/pagomedios-referencia-api-v2/
-    endpoint = "#{BASE_URL}/solicitudes-pago"
+    endpoint = "#{BASE_URL}/payment-links"
+    Rails.logger.info "[Pagomedios] POST #{endpoint} body=#{body.to_json}"
+
     response = post(endpoint, body)
 
     parse_payment_response(response, amount)
   rescue ApiError => e
+    Rails.logger.error "[Pagomedios] ApiError: #{e.message}"
     { success: false, error: e.message }
   rescue Error => e
+    Rails.logger.error "[Pagomedios] Error: #{e.message}"
     { success: false, error: e.message }
   end
 
@@ -51,6 +66,8 @@ class PagomediosService
 
   def post(path, body)
     uri = URI(path)
+    Rails.logger.info "[Pagomedios] Request: #{uri.scheme}://#{uri.host}:#{uri.port}#{uri.request_uri}"
+
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = (uri.scheme == "https")
     http.open_timeout = 15
@@ -64,7 +81,10 @@ class PagomediosService
     response = http.request(request)
     result = { code: response.code.to_i, body: response.body }
 
+    Rails.logger.info "[Pagomedios] Response: code=#{response.code}, body=#{response.body}"
+
     unless response.is_a?(Net::HTTPSuccess)
+      Rails.logger.error "[Pagomedios] API error #{response.code}: #{response.body}"
       raise ApiError, "Pagomedios API error #{response.code}: #{response.body}"
     end
 
@@ -73,9 +93,11 @@ class PagomediosService
 
   def parse_payment_response(response, amount)
     data = JSON.parse(response[:body])
-    # Ajustar según la estructura real de la respuesta de Pagomedios (docs: Links de pago / Solicitudes de pago)
-    payment_url = data["url_pago"] || data["payment_url"] || data["url"] || data.dig("data", "url_pago")
-    id = data["id"] || data["solicitud_id"] || data.dig("data", "id")
+    Rails.logger.info "[Pagomedios] Parsed response: #{data.inspect}"
+
+    # SuccessPaymentRequest: data.data.url, data.data.token
+    payment_url = data.dig("data", "url") || data["url_pago"] || data["payment_url"] || data["url"]
+    id = data.dig("data", "token") || data["id"] || data["solicitud_id"]
 
     if payment_url.present?
       { success: true, payment_url: payment_url, id: id, amount: amount }
