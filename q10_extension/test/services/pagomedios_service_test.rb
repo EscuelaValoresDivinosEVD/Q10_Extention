@@ -39,23 +39,24 @@ class PagomediosServiceTest < ActiveSupport::TestCase
     assert result[:error].present?
   end
 
-  test "create_payment pasa monto, moneda y descripción al API" do
+  test "create_payment pasa amount, description y custom_value (referencia) al API" do
     request_captured = nil
     stub_capture_request do |req|
       request_captured = req
     end
     assert request_captured
     body = JSON.parse(request_captured.body)
-    assert_equal 25.50, body["monto"]
-    assert_equal "USD", body["moneda"]
-    assert_equal "Prueba", body["descripcion"]
-    assert_equal "REF-001", body["referencia"]
+    assert_equal true, body["integration"]
+    assert_equal 25.50, body["amount"]
+    assert_equal 25.50, body["amount_without_tax"]
+    assert_equal "Prueba", body["description"]
+    assert_equal "REF-001", body["custom_value"]
   end
 
   private
 
   def stub_http_success!(&block)
-    body = { "url_pago" => "https://pay.example.com/xyz", "id" => "xyz" }.to_json
+    body = { "success" => true, "status" => 201, "data" => { "url" => "https://pay.example.com/xyz", "token" => "xyz" } }.to_json
     stub_net_http(body: body, success: true, &block)
   end
 
@@ -64,13 +65,14 @@ class PagomediosServiceTest < ActiveSupport::TestCase
   end
 
   def stub_capture_request(&capture_block)
+    response = build_fake_response(body: { "success" => true, "data" => { "url" => "https://ok.com", "token" => "1" } }.to_json, success: true)
     fake_http = Object.new.tap do |http|
       http.define_singleton_method(:use_ssl=) { |_| true }
       http.define_singleton_method(:open_timeout=) { |_| nil }
       http.define_singleton_method(:read_timeout=) { |_| nil }
       http.define_singleton_method(:request) do |req|
         capture_block&.call(req)
-        build_fake_response(body: { "url_pago" => "https://ok.com", "id" => "1" }.to_json, success: true)
+        response
       end
     end
     stub_class_method(Net::HTTP, :new, fake_http) do
@@ -84,7 +86,7 @@ class PagomediosServiceTest < ActiveSupport::TestCase
   end
 
   def stub_net_http(body:, success:, code: nil, &block)
-    response = build_fake_response(body: body, success: success, code: code || (success ? "200" : "400"))
+    response = build_fake_response(body: body, success: success, code: code || (success ? "201" : "400"))
     fake_http = Object.new.tap do |http|
       http.define_singleton_method(:use_ssl=) { |_| true }
       http.define_singleton_method(:open_timeout=) { |_| nil }

@@ -59,10 +59,53 @@ class PaymentsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".flash.alert", text: /enlace de pago|error/i
   end
 
+  # --- Webhook de confirmación de pago (Pagomedios POST) ---
+
+  test "POST /payments/webhook con pago autorizado responde 200" do
+    post payments_webhook_path, params: webhook_params_autorizada
+    assert_response :ok
+    assert_equal "", response.body
+  end
+
+  test "POST /payments/webhook con pago rechazado responde 200" do
+    post payments_webhook_path, params: {
+      status: "2",
+      reference: "LP-REJECT123",
+      customValue: "PAGO-999",
+      message: "Transaccion rechazada"
+    }
+    assert_response :ok
+  end
+
+  test "POST /payments/webhook acepta params típicos de Pagomedios sin authenticity_token" do
+    post payments_webhook_path, params: webhook_params_autorizada
+    assert_response :ok
+  end
+
   private
 
+  def webhook_params_autorizada
+    {
+      status: "1",
+      reference: "LP-KYDG1772899607",
+      authorizationCode: "243424",
+      customValue: "PAGO-1772899564",
+      clientId: "PM-DS5ie47664",
+      transactionDate: "2026-03-07 11:06:56",
+      message: "Transaccion aprobada",
+      cardNumber: "420000******0000",
+      cardBrand: "visa",
+      cardHolder: "Cesar Valderrama",
+      ipAddress: "200.24.158.125",
+      expiryMonth: "03",
+      expiryYear: "2029",
+      batch: "260307",
+      amount: "60000.00"
+    }
+  end
+
   def stub_pagomedios_success!
-    response_body = { "url_pago" => "https://pay.example.com/123", "id" => "abc-123" }.to_json
+    response_body = { "success" => true, "status" => 201, "data" => { "url" => "https://pay.example.com/123", "token" => "abc-123" } }.to_json
     stub_net_http_with_body(response_body, success: true) { yield }
   end
 
@@ -87,7 +130,7 @@ class PaymentsControllerTest < ActionDispatch::IntegrationTest
 
   def build_fake_http_response(body:, success:)
     Object.new.tap do |r|
-      r.define_singleton_method(:code) { success ? "200" : "400" }
+      r.define_singleton_method(:code) { success ? "201" : "400" }
       r.define_singleton_method(:body) { body }
       r.define_singleton_method(:is_a?) { |klass| success && klass == Net::HTTPSuccess }
     end

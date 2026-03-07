@@ -2,6 +2,16 @@ ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
 
+# Parche: Minitest 6 llama run(klass, method_name, reporter); Rails 8 LineFiltering esperaba run(reporter, options).
+# Ver https://github.com/rails/rails/issues/50695
+module Rails
+  module LineFiltering
+    def run(klass, method_name, reporter)
+      super(klass, method_name, reporter)
+    end
+  end
+end
+
 module ActiveSupport
   class TestCase
     # Run tests in parallel with specified workers
