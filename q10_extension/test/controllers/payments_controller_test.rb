@@ -21,10 +21,11 @@ class PaymentsControllerTest < ActionDispatch::IntegrationTest
     assert_select "button[type=submit]", text: /Generar enlace de pago/
   end
 
-  test "GET / (root) muestra el formulario de pago" do
+  test "GET / (root) muestra la landing CLEV, no el formulario de pago" do
     get root_path
     assert_response :success
-    assert_select "form[action=?]", pagar_path
+    assert_select "form[action=?]", acceder_path
+    assert_select "h1", text: /Gestión del estudiante CLEV/
   end
 
   test "POST /pagar con monto inválido vuelve al formulario con error" do

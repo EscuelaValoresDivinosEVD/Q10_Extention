@@ -1,0 +1,159 @@
+<% content_for :title, "Sistema Administrativo de Estudiantes CLEV" %>
+
+<div class="clev-landing">
+  <div class="clev-sticky-header">
+    <div class="clev-topbar" aria-hidden="true"></div>
+
+    <header class="clev-header-sheet">
+      <div class="clev-nav">
+        <div class="clev-nav__brand">
+          <img
+            src="https://estudiosvedicosclevevd.org/wp-content/uploads/2019/03/logo-web.png"
+            alt="Logo del Centro Latinoamericano de Estudios Védicos"
+            class="clev-nav__logo"
+            width="220"
+            height="56"
+            decoding="async"
+          />
+          <strong class="clev-nav__title">Sistema Administrativo de Estudiantes<br />CLEV</strong>
+        </div>
+        <div class="clev-nav__right">
+          <nav class="clev-nav__text-links" aria-label="Acerca del CLEV">
+            <a href="https://clev.org" target="_blank" rel="noopener noreferrer">Acerca del CLEV</a>
+          </nav>
+        </div>
+      </div>
+    </header>
+
+    <div class="clev-banner">
+      <p class="clev-banner__title">CENTRO LATINOAMERICANO DE ESTUDIOS VÉDICOS</p>
+    </div>
+  </div>
+
+  <main class="clev-main">
+    <div class="clev-card">
+      <section class="clev-card__info" aria-labelledby="clev-info-heading">
+        <p class="clev-pill">Bienvenido/a</p>
+        <h1 id="clev-info-heading" class="clev-card__heading">Gestión del estudiante CLEV</h1>
+        <p class="clev-card__lead">
+          Este sistema te permite consultar tu información como estudiante y generar el enlace de pago correspondiente.
+          Ingresa tu tipo de documento, número y correo para continuar.
+        </p>
+        <ul class="clev-features">
+          <li>Consulta de datos del estudiante</li>
+          <li>Generación de link de pago</li>
+          <li>Acceso rápido y seguro</li>
+        </ul>
+      </section>
+
+      <section class="clev-card__form" id="acceso-estudiante" aria-labelledby="clev-form-heading">
+        <h2 id="clev-form-heading" class="clev-card__heading clev-card__heading--form">Acceder</h2>
+        <p class="clev-tip clev-tip--compact">
+          <strong>Recomendación:</strong> usa el mismo correo registrado en tu matrícula.
+        </p>
+
+        <% if flash[:alert] %>
+          <div class="clev-flash clev-flash--alert" role="alert"><%= flash[:alert] %></div>
+        <% end %>
+
+        <%= form_with url: acceder_path, method: :post, local: true, class: "clev-form", id: "clev-acceso-form", data: { turbo: false } do %>
+          <div class="clev-field">
+            <label for="document_type">Tipo de documento</label>
+            <select name="document_type" id="document_type" required>
+              <option value="" disabled <%= "selected" if params[:document_type].blank? %>>Selecciona una opción</option>
+              <option value="cc" <%= "selected" if params[:document_type] == "cc" %>>Cédula de ciudadanía</option>
+              <option value="ti" <%= "selected" if params[:document_type] == "ti" %>>Tarjeta de identidad</option>
+              <option value="ce" <%= "selected" if params[:document_type] == "ce" %>>Cédula de extranjería</option>
+              <option value="pasaporte" <%= "selected" if params[:document_type] == "pasaporte" %>>Pasaporte</option>
+              <option value="nit" <%= "selected" if params[:document_type] == "nit" %>>NIT</option>
+            </select>
+          </div>
+
+          <div class="clev-field">
+            <label for="document">Documento</label>
+            <input
+              type="text"
+              name="document"
+              id="document"
+              value="<%= params[:document] %>"
+              placeholder="Ej. 10203040"
+              autocomplete="off"
+              required
+            />
+          </div>
+
+          <div class="clev-field">
+            <label for="email">Correo</label>
+            <input
+              type="email"
+              name="email"
+              id="email"
+              value="<%= params[:email] %>"
+              placeholder="nombre@correo.com"
+              autocomplete="email"
+              required
+            />
+          </div>
+
+          <button type="submit" class="clev-submit">Ingresar</button>
+        <% end %>
+
+        <div class="clev-form-footer">
+          <span class="clev-support">Soporte: <%= link_to "info@clev.org", "mailto:info@clev.org", class: "clev-link" %></span>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <% if @show_email_modal && @confirmation_email.present? %>
+    <dialog class="clev-modal" id="clev-email-modal" aria-modal="true" aria-labelledby="clev-modal-title">
+      <div class="clev-modal__panel">
+        <div class="clev-modal__accent"></div>
+        <div class="clev-modal__body">
+          <h3 id="clev-modal-title" class="clev-modal__title">Revisa tu correo</h3>
+          <p id="clev-modal-desc" class="clev-modal__text">
+            Se enviará un correo electrónico a <strong class="clev-modal__email"><%= @confirmation_email %></strong>
+            para que puedas continuar con el proceso. Si no lo ves, revisa la carpeta de spam o correo no deseado.
+          </p>
+          <form method="dialog" class="clev-modal__actions">
+            <button type="submit" class="clev-modal__btn">Entendido</button>
+          </form>
+        </div>
+      </div>
+    </dialog>
+    <script>
+      (function () {
+        var raiz = "<%= root_path %>";
+        function urlALaRaiz() {
+          if (window.history && window.history.replaceState) {
+            history.replaceState(null, "", raiz);
+          }
+        }
+        function limpiarFormularioAcceso() {
+          var f = document.getElementById("clev-acceso-form");
+          if (!f) return;
+          var doc = f.querySelector("#document");
+          var em = f.querySelector("#email");
+          var sel = f.querySelector("#document_type");
+          if (doc) doc.value = "";
+          if (em) em.value = "";
+          if (sel) sel.selectedIndex = 0;
+        }
+        function alCerrarModalCorreo() {
+          urlALaRaiz();
+          limpiarFormularioAcceso();
+        }
+        function abrirModalCorreo() {
+          var d = document.getElementById("clev-email-modal");
+          if (d && typeof d.showModal === "function") {
+            d.showModal();
+            urlALaRaiz();
+            d.addEventListener("close", alCerrarModalCorreo);
+          }
+        }
+        if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", abrirModalCorreo);
+        else abrirModalCorreo();
+      })();
+    </script>
+  <% end %>
+</div>

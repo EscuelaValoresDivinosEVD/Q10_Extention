@@ -4,8 +4,11 @@ Rails.application.routes.draw do
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
   get "up" => "rails/health#show", as: :rails_health_check
 
+  # Entrada estudiantes CLEV → luego flujo Pagomedios
+  root "home#index"
+  post "acceder", to: "home#create", as: :acceder
+
   # Pagomedios: formulario de pago y generación de enlace
-  root "payments#new"
   get "pagar", to: "payments#new", as: :payments
   post "pagar", to: "payments#create"
 
