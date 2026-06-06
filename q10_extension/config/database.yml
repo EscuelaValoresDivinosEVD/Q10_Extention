@@ -16,7 +16,12 @@ default: &default
   adapter: postgresql
   encoding: unicode
   pool: <%= ENV["DB_POOL"] || ENV['RAILS_MAX_THREADS'] || 5 %>
-  username: cesarvalderrama
+  # Do NOT fallback to ENV["USER"] (in some setups it is a Windows username
+  # that does not exist as a PostgreSQL role and triggers auth errors).
+  username: <%= ENV["DB_USERNAME"] %>
+  password: <%= ENV["DB_PASSWORD"] %>
+  host: <%= ENV["DB_HOST"] if ENV["DB_HOST"] %>
+  port: <%= ENV["DB_PORT"] if ENV["DB_PORT"] %>
 
 
 development:

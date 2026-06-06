@@ -1,0 +1,346 @@
+<% content_for :head do %>
+  <script>
+    if (window.top !== window.self) {
+      window.top.location.replace(window.location.href);
+    }
+  </script>
+<% end %>
+
+<% content_for :title, "Panel del estudiante CLEV" %>
+<% nombre_display = @student[:nombre_completo].presence || "Estudiante CLEV" %>
+<% doc_display = @student[:numero_identificacion].presence || @numero_identificacion %>
+<% codigo_display = @student[:codigo_estudiante].presence %>
+<% estado_display = if @program_tabs.size > 1
+  "#{@program_tabs.size} programas"
+elsif @program_tabs.one?
+  @program_tabs.first[:student][:estado_credito].presence || "Activo"
+else
+  "Sin crédito"
+end %>
+
+<div class="panel-page">
+  <header class="panel-banner card block">
+    <div class="panel-banner-left">
+      <p class="panel-kicker">Panel del estudiante</p>
+      <h1 class="panel-title"><%= nombre_display %></h1>
+      <p class="panel-doc">
+        Documento · <%= doc_display %>
+        <% if codigo_display.present? %>
+          · Código · <%= codigo_display %>
+        <% end %>
+      </p>
+      <p class="panel-contact"><%= @student_email %></p>
+    </div>
+    <div class="panel-banner-right">
+      <% if estado_display.present? %>
+        <span class="status-pill"><%= estado_display %></span>
+      <% end %>
+      <%= link_to "Volver al inicio", root_path, class: "btn btn-ghost", data: { turbo: false }, onclick: "event.preventDefault(); window.location.replace('#{root_path}');" %>
+    </div>
+  </header>
+
+  <% if flash[:alert].present? %>
+    <div class="panel-flash" role="alert"><%= flash[:alert] %></div>
+  <% end %>
+  <% if flash[:notice].present? %>
+    <div class="panel-flash panel-flash--success" role="status"><%= flash[:notice] %></div>
+  <% end %>
+
+  <% if @program_tabs.any? %>
+    <section class="card block block-programs">
+      <% if @program_tabs.size > 1 %>
+        <div class="block-head block-head--programs">
+          <h2 class="block-title">Mis programas</h2>
+          <span class="block-tag"><%= @program_tabs.size %> matrículas</span>
+        </div>
+
+        <div class="panel-tabs" role="tablist" aria-label="Programas matriculados">
+          <% @program_tabs.each do |tab| %>
+            <% tab_id = tab[:consecutivo_credito].to_s %>
+            <% active = tab_id == @active_consecutivo.to_s %>
+            <button
+              type="button"
+              class="panel-tab<%= " is-active" if active %>"
+              role="tab"
+              id="panel-tab-<%= tab_id %>"
+              aria-selected="<%= active %>"
+              aria-controls="panel-tabpanel-<%= tab_id %>"
+              data-panel-tab="<%= tab_id %>"
+            >
+              <%= tab[:label] %>
+            </button>
+          <% end %>
+        </div>
+      <% end %>
+
+      <% @program_tabs.each do |tab| %>
+        <% tab_id = tab[:consecutivo_credito].to_s %>
+        <% active = tab_id == @active_consecutivo.to_s %>
+        <% student = tab[:student] %>
+        <% debt_summary = tab[:debt_summary] %>
+        <% cuotas = tab[:cuotas] %>
+        <% ordenes_pago = tab[:ordenes_pago] %>
+        <% credit = tab[:credit] %>
+        <% cuotas_pendientes = cuotas.select { |cuota| cuota["Pendiente"].to_f.positive? } %>
+        <% program_meta = [
+          ("Periodo #{student[:nombre_periodo]}" if student[:nombre_periodo].present?),
+          ("#{student[:numero_cuotas]} cuotas" if student[:numero_cuotas].present?),
+          (student[:periodicidad_cuotas] if student[:periodicidad_cuotas].present?)
+        ].compact.join(" · ") %>
+
+        <div
+          class="panel-tab-panel<%= " is-active" if active %>"
+          role="tabpanel"
+          id="panel-tabpanel-<%= tab_id %>"
+          aria-labelledby="panel-tab-<%= tab_id %>"
+          data-panel-tabpanel="<%= tab_id %>"
+          <% unless active %>hidden<% end %>
+        >
+          <header class="program-compact block--nested">
+            <div class="program-compact__head">
+              <% if @program_tabs.size == 1 %>
+                <h2 class="block-title program-compact__name"><%= student[:nombre_programa].presence || "Programa académico" %></h2>
+              <% end %>
+              <span class="course-pill"><%= student[:estado_credito].presence || "En curso" %></span>
+            </div>
+            <% if program_meta.present? %>
+              <p class="program-compact__meta"><%= program_meta %></p>
+            <% end %>
+          </header>
+
+          <section class="block block--nested">
+            <h3 class="block-title">Resumen financiero</h3>
+            <ul class="finance-facts">
+              <li>
+                <span>Deuda total</span>
+                <strong><%= number_to_currency(debt_summary[:deuda_total], unit: "$", precision: 2) %></strong>
+              </li>
+              <li>
+                <span>Abonos</span>
+                <strong><%= number_to_currency(debt_summary[:total_abonos], unit: "$", precision: 2) %></strong>
+              </li>
+              <li>
+                <span>Pendiente</span>
+                <strong><%= number_to_currency(debt_summary[:total_pendiente], unit: "$", precision: 2) %></strong>
+              </li>
+              <li>
+                <span>Pago mínimo</span>
+                <strong><%= number_to_currency(debt_summary[:pago_minimo], unit: "$", precision: 2) %></strong>
+              </li>
+            </ul>
+
+            <% if ordenes_pago.any? %>
+              <div class="finance-orders">
+                <h4 class="block-title finance-orders__title">Órdenes de pago</h4>
+                <div class="panel-table-wrap">
+                  <table class="panel-table">
+                    <thead>
+                      <tr>
+                        <th>No. orden</th>
+                        <th>Fecha</th>
+                        <th>Valor total</th>
+                        <th>En este crédito</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% ordenes_pago.each do |orden| %>
+                        <tr>
+                          <td><%= orden["Numero_orden_pago"] %></td>
+                          <td><%= orden["Fecha_orden_pago"].to_s.first(10) %></td>
+                          <td><%= number_to_currency(orden["Valor_total"], unit: "$", precision: 2) %></td>
+                          <td><%= number_to_currency(orden["Valor_en_este_credito"], unit: "$", precision: 2) %></td>
+                        </tr>
+                      <% end %>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            <% end %>
+          </section>
+
+          <% if cuotas.any? %>
+            <section class="block block--nested block-cuotas">
+              <h3 class="block-title">
+                Cuotas pactadas<% if cuotas_pendientes.any? %> <span class="block-hint">(Seleccione las cuotas que desea pagar)</span><% end %>
+              </h3>
+
+              <% if cuotas_pendientes.any? %>
+                <%= form_with url: pagar_path, method: :post, local: true, data: { turbo: false }, class: "panel-payment-form panel-cuotas-form", id: "clev-payment-selector-#{tab_id}" do %>
+                  <input type="hidden" name="return_token" value="<%= params[:token] %>" />
+                  <input type="hidden" name="numero_identificacion" value="<%= @numero_identificacion %>" />
+                  <input type="hidden" name="codigo_persona" value="<%= credit['Codigo_estudiante'] %>" />
+                  <input type="hidden" name="codigo_cajero" value="<%= credit['Codigo_cajero'] %>" />
+                  <input type="hidden" name="codigo_estudiante" value="<%= student[:codigo_estudiante] %>" />
+                  <input type="hidden" name="consecutivo_credito" value="<%= credit['Consecutivo_credito'] %>" />
+                  <input type="hidden" name="cuotas" class="clev-payment-cuotas" value="" />
+                  <input type="hidden" name="amount" class="clev-payment-amount" value="" />
+                  <input type="hidden" name="currency" value="USD" />
+                  <input type="hidden" name="description" class="clev-payment-description" value="" />
+
+                  <div class="panel-table-wrap">
+                    <table class="panel-table panel-table--selectable">
+                      <thead>
+                        <tr>
+                          <th class="panel-table-check" scope="col">
+                            <input
+                              type="checkbox"
+                              class="clev-select-all-cuotas"
+                              aria-label="Seleccionar todas las cuotas pendientes"
+                            />
+                          </th>
+                          <th>Cuota</th>
+                          <th>Fecha</th>
+                          <th>Total</th>
+                          <th>Abonado</th>
+                          <th>Pendiente</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <% cuotas.each do |cuota| %>
+                          <% pending_amount = cuota["Pendiente"].to_f.round(2) %>
+                          <% cuota_numero = cuota["Numero_cuota"] || cuota["Número_cuota"] %>
+                          <% payable = pending_amount.positive? %>
+                          <tr class="<%= payable ? "is-payable" : "is-paid" %>">
+                            <td class="panel-table-check">
+                              <% if payable %>
+                                <input
+                                  type="checkbox"
+                                  class="clev-cuota-check"
+                                  data-amount="<%= pending_amount %>"
+                                  data-cuota="<%= cuota_numero %>"
+                                  aria-label="Seleccionar cuota <%= cuota_numero %>"
+                                />
+                              <% end %>
+                            </td>
+                            <td><%= cuota_numero %></td>
+                            <td><%= cuota["Fecha_cuota"].to_s.first(10) %></td>
+                            <td><%= number_to_currency(cuota["Total_cuota_hoy"], unit: "$", precision: 2) %></td>
+                            <td><%= number_to_currency(cuota["Pagado"], unit: "$", precision: 2) %></td>
+                            <td><%= number_to_currency(cuota["Pendiente"], unit: "$", precision: 2) %></td>
+                          </tr>
+                        <% end %>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div class="panel-cuotas-paybar">
+                    <p class="panel-payment-total">
+                      Total seleccionado: <strong class="clev-payment-total-value">$0.00</strong>
+                    </p>
+                    <button type="submit" class="btn btn-primary clev-payment-submit">Pagar cuotas seleccionadas</button>
+                  </div>
+                <% end %>
+              <% else %>
+                <div class="panel-table-wrap">
+                  <table class="panel-table">
+                    <thead>
+                      <tr>
+                        <th>Cuota</th>
+                        <th>Fecha</th>
+                        <th>Total</th>
+                        <th>Abonado</th>
+                        <th>Pendiente</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% cuotas.each do |cuota| %>
+                        <tr class="is-paid">
+                          <td><%= cuota["Numero_cuota"] || cuota["Número_cuota"] %></td>
+                          <td><%= cuota["Fecha_cuota"].to_s.first(10) %></td>
+                          <td><%= number_to_currency(cuota["Total_cuota_hoy"], unit: "$", precision: 2) %></td>
+                          <td><%= number_to_currency(cuota["Pagado"], unit: "$", precision: 2) %></td>
+                          <td><%= number_to_currency(cuota["Pendiente"], unit: "$", precision: 2) %></td>
+                        </tr>
+                      <% end %>
+                    </tbody>
+                  </table>
+                </div>
+                <p class="panel-empty">No hay cuotas pendientes para pagar en este programa.</p>
+              <% end %>
+            </section>
+          <% end %>
+        </div>
+      <% end %>
+    </section>
+  <% end %>
+
+  <footer class="panel-footer">© CLEV · Sistema Administrativo de Estudiantes</footer>
+</div>
+
+<script>
+  (function () {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll("[data-panel-tab]"));
+    var panels = Array.prototype.slice.call(document.querySelectorAll("[data-panel-tabpanel]"));
+
+    function showTab(tabId) {
+      tabs.forEach(function (tab) {
+        var active = tab.dataset.panelTab === tabId;
+        tab.classList.toggle("is-active", active);
+        tab.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      panels.forEach(function (panel) {
+        var active = panel.dataset.panelTabpanel === tabId;
+        panel.classList.toggle("is-active", active);
+        panel.hidden = !active;
+      });
+    }
+
+    tabs.forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        showTab(tab.dataset.panelTab);
+      });
+    });
+
+    if (tabs.length === 0 && panels.length === 1) {
+      panels[0].hidden = false;
+      panels[0].classList.add("is-active");
+    }
+
+    function initPaymentForm(form) {
+      var checks = Array.prototype.slice.call(form.querySelectorAll(".clev-cuota-check"));
+      var masterCheck = form.querySelector(".clev-select-all-cuotas");
+      var amountInput = form.querySelector(".clev-payment-amount");
+      var cuotasInput = form.querySelector(".clev-payment-cuotas");
+      var descriptionInput = form.querySelector(".clev-payment-description");
+      var totalNode = form.querySelector(".clev-payment-total-value");
+
+      function formatMoney(value) {
+        return "$" + value.toFixed(2);
+      }
+
+      function refreshTotals() {
+        var selected = checks.filter(function (check) { return check.checked; });
+        var total = selected.reduce(function (sum, check) {
+          return sum + parseFloat(check.dataset.amount || "0");
+        }, 0);
+        var cuotas = selected.map(function (check) { return check.dataset.cuota; });
+
+        amountInput.value = total.toFixed(2);
+        cuotasInput.value = cuotas.join(",");
+        descriptionInput.value = "Pago cuotas " + (cuotas.join(", ") || "sin seleccionar") + " - estudiante <%= @numero_identificacion %>";
+        totalNode.textContent = formatMoney(total);
+        if (masterCheck) {
+          masterCheck.checked = checks.length > 0 && selected.length === checks.length;
+        }
+      }
+
+      checks.forEach(function (check) { check.addEventListener("change", refreshTotals); });
+      if (masterCheck) {
+        masterCheck.addEventListener("change", function () {
+          checks.forEach(function (check) { check.checked = masterCheck.checked; });
+          refreshTotals();
+        });
+      }
+      refreshTotals();
+
+      form.addEventListener("submit", function (event) {
+        if (!checks.some(function (check) { return check.checked; })) {
+          event.preventDefault();
+          window.alert("Selecciona al menos una cuota para continuar con el pago.");
+        }
+      });
+    }
+
+    Array.prototype.slice.call(document.querySelectorAll(".panel-payment-form")).forEach(initPaymentForm);
+  })();
+</script>

@@ -6,10 +6,17 @@ class PaymentsControllerTest < ActionDispatch::IntegrationTest
   def setup
     @token = ENV["PAGOMEDIOS_API_TOKEN"]
     ENV["PAGOMEDIOS_API_TOKEN"] = "test-token" if @token.blank?
+
+    @original_q10_report = Q10::PaymentReporter.instance_method(:report!)
+    Q10::PaymentReporter.define_method(:report!) do |session|
+      PaymentSessionStore.mark_q10_reported(session[:reference], response: { success: true })
+      { reported: true }
+    end
   end
 
   def teardown
     ENV["PAGOMEDIOS_API_TOKEN"] = @token
+    Q10::PaymentReporter.define_method(:report!, @original_q10_report)
   end
 
   test "GET /pagar muestra el formulario" do
@@ -41,14 +48,31 @@ class PaymentsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".flash.alert", text: /monto válido/
   end
 
-  test "POST /pagar con monto válido y API exitosa muestra checkout con enlace" do
+  test "POST /pagar con monto válido y API exitosa redirige a Pagomedios" do
     stub_pagomedios_success! do
       post pagar_path, params: { amount: "50", currency: "USD" }
     end
-    assert_response :success
-    assert_select "a.btn-pay[href=?]", "https://pay.example.com/123"
-    assert_select ".amount", text: /50/
-    assert_select "a", text: /Crear otro pago/
+    assert_redirected_to "https://pay.example.com/123"
+    payment = Payment.order(:created_at).last
+    assert_equal "pending", payment.status
+    assert_equal 50.0, payment.amount.to_f
+  end
+
+  test "POST /pagar desde cuotas redirige a Pagomedios y guarda sesión" do
+    stub_pagomedios_success! do
+      post pagar_path, params: {
+        amount: "116",
+        currency: "USD",
+        return_token: "token-test",
+        numero_identificacion: "81181178",
+        codigo_estudiante: "117845823986",
+        consecutivo_credito: "655",
+        cuotas: "3",
+        description: "Pago cuota 3"
+      }
+    end
+    assert_response :redirect
+    assert_match %r{\Ahttps://pay\.example\.com/}, response.redirect_url
   end
 
   test "POST /pagar cuando la API falla muestra error en el formulario" do
@@ -58,14 +82,86 @@ class PaymentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert_select "form[action=?]", pagar_path
     assert_select ".flash.alert", text: /enlace de pago|error/i
+
+    payment = Payment.order(:created_at).last
+    assert_equal "failed", payment.status
+    assert_not_nil payment.error_message
   end
 
   # --- Webhook de confirmación de pago (Pagomedios POST) ---
 
-  test "POST /payments/webhook con pago autorizado responde 200" do
-    post payments_webhook_path, params: webhook_params_autorizada
+  test "POST /payments/webhook desde servidor responde 200 y actualiza sesión" do
+    PaymentSessionStore.save("PAGO-1772899564", credit_session("PAGO-1772899564"))
+    PaymentRecorder.record_pending!(
+      reference: "PAGO-1772899564",
+      attrs: {
+        amount: 116.0,
+        currency: "USD",
+        consecutivo_credito: 655,
+        cuotas: [ "3" ]
+      }
+    )
+
+    post payments_webhook_path,
+         params: webhook_params_autorizada,
+         headers: { "User-Agent" => "Pagomedios-Webhook/1.0" }
     assert_response :ok
-    assert_equal "", response.body
+
+    session = PaymentSessionStore.fetch("PAGO-1772899564")
+    assert_equal "authorized", session[:status]
+    assert session[:q10_reported]
+
+    payment = Payment.find_by!(reference: "PAGO-1772899564")
+    assert_equal "authorized", payment.status
+    assert payment.q10_reported
+    assert_equal "243424", payment.authorization_code
+  end
+
+  test "POST /payments/webhook desde navegador muestra confirmación y enlace al panel" do
+    PaymentSessionStore.save("CLEV-BROWSER", credit_session("CLEV-BROWSER", return_token: "token-panel"))
+
+    post payments_webhook_path,
+         params: webhook_params_autorizada.merge(customValue: "CLEV-BROWSER"),
+         headers: { "User-Agent" => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0" }
+
+    assert_response :success
+    assert_select "h1", text: /Pago ejecutado correctamente/
+    assert_match %r{/continuar\?}, response.body
+    assert_match "payment_success=1", response.body
+    session = PaymentSessionStore.fetch("CLEV-BROWSER")
+    assert_equal "authorized", session[:status]
+  end
+
+  test "GET /payments/webhook desde servidor responde 200" do
+    PaymentSessionStore.save("CLEV-TEST", credit_session("CLEV-TEST", return_token: "token-panel"))
+
+    get payments_webhook_path,
+        params: {
+          status: "1",
+          customValue: "CLEV-TEST",
+          message: "Transaccion aprobada"
+        },
+        headers: { "User-Agent" => "Pagomedios-Webhook/1.0" }
+
+    assert_response :ok
+    session = PaymentSessionStore.fetch("CLEV-TEST")
+    assert_equal "authorized", session[:status]
+    assert session[:q10_reported]
+  end
+
+  test "GET /payments/return muestra confirmación tras pago aprobado" do
+    PaymentSessionStore.save("CLEV-RETURN", credit_session("CLEV-RETURN", return_token: "token-panel"))
+
+    get payment_return_path, params: {
+      status: "1",
+      customValue: "CLEV-RETURN",
+      message: "Transaccion aprobada"
+    }
+
+    assert_response :success
+    assert_select "h1", text: /Pago ejecutado correctamente/
+    assert_match "payment_ref=CLEV-RETURN", response.body
+    assert_match "Redirigiendo a tu panel", response.body
   end
 
   test "POST /payments/webhook con pago rechazado responde 200" do
@@ -84,6 +180,19 @@ class PaymentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  def credit_session(reference, return_token: nil)
+    {
+      reference: reference,
+      status: "pending",
+      amount: 116.0,
+      return_token: return_token,
+      codigo_persona: "117845823986",
+      codigo_cajero: "221367230991",
+      consecutivo_credito: 655,
+      cuotas: [ "3" ]
+    }
+  end
 
   def webhook_params_autorizada
     {

@@ -1,0 +1,21 @@
+default: &default
+  enabled: true
+  base_url: <%= ENV.fetch("Q10_API_BASE_URL", "https://api.q10.com/v1") %>
+  consecutivo_periodo: <%= ENV.fetch("Q10_CONSECUTIVO_PERIODO", "12") %>
+  subscription_key: <%= ENV.fetch("Q10_SUBSCRIPTION_KEY", ENV.fetch("Q10_AUTHORIZATION", "a79552999bd54ef99a577c-f6969194dc")) %>
+  api_key: <%= ENV.fetch("Q10_API_KEY", "a79552999bd54ef99a577cf6969194dc") %>
+  open_timeout: <%= ENV.fetch("Q10_API_OPEN_TIMEOUT", 10) %>
+  read_timeout: <%= ENV.fetch("Q10_API_READ_TIMEOUT", 20) %>
+  codigo_cajero: <%= ENV.fetch("Q10_CODIGO_CAJERO", "") %>
+  payment_account_name: <%= ENV.fetch("Q10_PAYMENT_ACCOUNT_NAME", "Pagosmedios") %>
+  payment_method_name: <%= ENV.fetch("Q10_PAYMENT_METHOD_NAME", "Pagosmedios") %>
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+  enabled: false
+
+production:
+  <<: *default

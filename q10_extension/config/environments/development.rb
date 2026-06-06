@@ -31,8 +31,18 @@ Rails.application.configure do
   # Store uploaded files on the local file system (see config/storage.yml for options).
   config.active_storage.service = :local
 
-  # Don't care if the mailer can't send.
-  config.action_mailer.raise_delivery_errors = false
+  # Correo en desarrollo:
+  # - con SparkPost configurado (credentials o SPARKPOST_SMTP_API_KEY), envía correos reales.
+  # - si no, guarda correos en /letter_opener para inspección local.
+  config.action_mailer.raise_delivery_errors = true
+  config.action_mailer.perform_deliveries = true
+
+  if SparkpostSmtp.configured?
+    config.action_mailer.delivery_method = :smtp
+    config.action_mailer.smtp_settings = SparkpostSmtp.settings
+  else
+    config.action_mailer.delivery_method = :letter_opener_web
+  end
 
   # Make template changes take effect immediately.
   config.action_mailer.perform_caching = false
