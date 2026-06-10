@@ -12,11 +12,15 @@ module SparkpostSmtp
     smtp_api_key.present?
   end
 
+  def smtp_domain
+    ENV.fetch("SPARKPOST_SMTP_DOMAIN", "evdsky.com")
+  end
+
   def settings
     {
       address: "smtp.sparkpostmail.com",
       port: 587,
-      domain: "evdsky.com",
+      domain: smtp_domain,
       user_name: "SMTP_Injection",
       password: smtp_api_key,
       authentication: :login,

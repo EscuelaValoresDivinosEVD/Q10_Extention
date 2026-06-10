@@ -50,9 +50,7 @@ class HomeController < ApplicationController
     Array(@q10_creditos).any?
   rescue ::Q10::ApiClient::Error => e
     Rails.logger.error("[Q10] Error consultando créditos para identificación #{numero_identificacion}: #{e.message}")
-    return true if Rails.env.development?
-
-    false
+    ENV["Q10_SKIP_CREDITOS_CHECK"] == "true"
   end
 
   def send_continue_link

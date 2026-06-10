@@ -21,22 +21,15 @@ module Q10
       raise Error, "Numero_identificacion es obligatorio." if numero_identificacion.blank?
 
       uri = URI("#{base_url}/creditos")
-      query_params = {
+      uri.query = URI.encode_www_form(
         Consecutivo_periodo: consecutivo_periodo,
         Numero_identificacion: numero_identificacion
-      }
-      uri.query = URI.encode_www_form(query_params)
+      )
 
-      response = perform_get_with_fallbacks(uri)
-      parsed_body = parse_json(response.body)
-
-      unless response.is_a?(Net::HTTPSuccess)
-        raise Error, "Q10 respondió con error #{response.code}: #{parsed_body}"
-      end
-
+      handle_response(perform_with_fallbacks(uri, method: "GET") { |attempt_uri, headers| perform_get(attempt_uri, headers) })
       filtered = filter_by_numero_identificacion(parsed_body, numero_identificacion)
 
-      { success: true, data: filtered, status: response.code.to_i }
+      { success: true, data: filtered, status: @last_response.code.to_i }
     rescue JSON::ParserError
       raise Error, "Q10 devolvió una respuesta no válida."
     end
@@ -46,42 +39,59 @@ module Q10
       raise Error, "El payload del pago es obligatorio." if payload.blank?
 
       uri = URI("#{base_url}/pagos/creditos")
-      response = perform_post_with_fallbacks(uri, payload.to_json)
-      parsed_body = parse_json(response.body)
+      body = payload.to_json
 
-      unless response.is_a?(Net::HTTPSuccess)
-        raise Error, "Q10 respondió con error #{response.code}: #{parsed_body}"
-      end
+      handle_response(
+        perform_with_fallbacks(uri, method: "POST") do |attempt_uri, headers|
+          perform_post(attempt_uri, headers, body)
+        end
+      )
 
-      { success: true, data: parsed_body, status: response.code.to_i }
+      { success: true, data: parsed_body, status: @last_response.code.to_i }
     rescue JSON::ParserError
       raise Error, "Q10 devolvió una respuesta no válida."
     end
 
     private
 
-    def perform_get_with_fallbacks(uri)
+    def handle_response(response)
+      @last_response = response
+      @parsed_body = parse_json(response.body)
+
+      unless response.is_a?(Net::HTTPSuccess)
+        raise Error, "Q10 respondió con error #{response.code}: #{@parsed_body}"
+      end
+
+      @parsed_body
+    end
+
+    attr_reader :parsed_body
+
+    def perform_with_fallbacks(uri, method: "GET")
       subscription_key = @config[:subscription_key].to_s
       api_key = @config[:api_key].to_s
-
-      attempts = [
-        { headers: build_headers(subscription_key: subscription_key, api_key: api_key), extra_query: {} },
-        { headers: build_headers(subscription_key: subscription_key, api_key: api_key), extra_query: { "subscription-key" => subscription_key } },
-        { headers: build_headers(subscription_key: subscription_key, api_key: api_key), extra_query: { "api-key" => api_key } },
-        { headers: build_headers(subscription_key: subscription_key, api_key: api_key), extra_query: { "subscription-key" => subscription_key, "api-key" => api_key } }
-      ]
-
       last_response = nil
-      attempts.each_with_index do |attempt, index|
-        uri_for_attempt = uri_with_extra_query(uri, attempt[:extra_query])
-        response = perform_get(uri_for_attempt, attempt[:headers])
-        log_attempt(index: index + 1, uri: uri_for_attempt, headers: attempt[:headers], response: response)
+
+      auth_attempts(subscription_key, api_key).each_with_index do |attempt, index|
+        attempt_uri = uri_with_extra_query(uri, attempt[:extra_query])
+        response = yield(attempt_uri, attempt[:headers])
+        log_attempt(index: index + 1, uri: attempt_uri, headers: attempt[:headers], response: response, method: method)
         return response unless missing_subscription_key?(response)
 
         last_response = response
       end
 
-      last_response || perform_get(uri, build_headers(subscription_key: subscription_key, api_key: api_key))
+      last_response || yield(uri, build_headers(subscription_key: subscription_key, api_key: api_key))
+    end
+
+    def auth_attempts(subscription_key, api_key)
+      headers = build_headers(subscription_key: subscription_key, api_key: api_key)
+      [
+        { headers: headers, extra_query: {} },
+        { headers: headers, extra_query: { "subscription-key" => subscription_key } },
+        { headers: headers, extra_query: { "api-key" => api_key } },
+        { headers: headers, extra_query: { "subscription-key" => subscription_key, "api-key" => api_key } }
+      ]
     end
 
     def perform_get(uri, headers)
@@ -90,30 +100,6 @@ module Q10
 
     def perform_post(uri, headers, body)
       perform_request(Net::HTTP::Post, uri, headers, body: body)
-    end
-
-    def perform_post_with_fallbacks(uri, body)
-      subscription_key = @config[:subscription_key].to_s
-      api_key = @config[:api_key].to_s
-
-      attempts = [
-        { headers: build_headers(subscription_key: subscription_key, api_key: api_key), extra_query: {} },
-        { headers: build_headers(subscription_key: subscription_key, api_key: api_key), extra_query: { "subscription-key" => subscription_key } },
-        { headers: build_headers(subscription_key: subscription_key, api_key: api_key), extra_query: { "api-key" => api_key } },
-        { headers: build_headers(subscription_key: subscription_key, api_key: api_key), extra_query: { "subscription-key" => subscription_key, "api-key" => api_key } }
-      ]
-
-      last_response = nil
-      attempts.each_with_index do |attempt, index|
-        uri_for_attempt = uri_with_extra_query(uri, attempt[:extra_query])
-        response = perform_post(uri_for_attempt, attempt[:headers], body)
-        log_attempt(index: index + 1, uri: uri_for_attempt, headers: attempt[:headers], response: response, method: "POST")
-        return response unless missing_subscription_key?(response)
-
-        last_response = response
-      end
-
-      last_response || perform_post(uri, build_headers(subscription_key: subscription_key, api_key: api_key), body)
     end
 
     def perform_request(request_class, uri, headers, body: nil)
@@ -148,17 +134,15 @@ module Q10
     def missing_subscription_key?(response)
       return false unless response.code.to_i == 401
 
-      body = response.body.to_s.downcase
-      body.include?("missing subscription key")
+      response.body.to_s.downcase.include?("missing subscription key")
     end
 
     def uri_with_extra_query(base_uri, extra_query)
       return base_uri if extra_query.blank?
 
       current = URI.decode_www_form(base_uri.query.to_s)
-      extra = extra_query.to_a
       copy = base_uri.dup
-      copy.query = URI.encode_www_form(current + extra)
+      copy.query = URI.encode_www_form(current + extra_query.to_a)
       copy
     end
 
@@ -184,8 +168,7 @@ module Q10
 
     def filter_by_numero_identificacion(payload, numero_identificacion)
       expected = normalize_identificacion(numero_identificacion)
-      return [] if expected.blank?
-      return [] unless payload.is_a?(Array)
+      return [] if expected.blank? || !payload.is_a?(Array)
 
       payload.select do |credit|
         credit.is_a?(Hash) &&

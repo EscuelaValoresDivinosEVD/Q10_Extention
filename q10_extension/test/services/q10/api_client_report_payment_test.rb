@@ -27,7 +27,7 @@ class Q10::ApiClientReportPaymentTest < ActiveSupport::TestCase
     end
 
     client = Q10::ApiClient.new(config: Rails.application.config_for(:q10).deep_symbolize_keys.merge(enabled: true))
-    client.define_singleton_method(:perform_post_with_fallbacks) do |uri, body|
+    client.define_singleton_method(:perform_post) do |uri, _headers, body|
       captured[:uri] = uri
       captured[:body] = JSON.parse(body)
       fake_response

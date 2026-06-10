@@ -49,24 +49,8 @@ class Q10DebtsController < ApplicationController
   end
 
   def payment_success_pending_in_q10?
-    return true if params[:q10_pending] == "1" && !retry_q10_payment_report
+    return true if params[:q10_pending] == "1" && !::Q10::ReportOrchestrator.retry_report!(params[:payment_ref])
 
-    false
-  end
-
-  def retry_q10_payment_report
-    reference = params[:payment_ref].to_s.presence
-    return false if reference.blank?
-
-    session = PaymentSessionStore.fetch(reference)
-    return false if session.blank? || session[:q10_reported] || session[:status] != "authorized"
-
-    result = ::Q10::PaymentReporter.new.report!(session)
-    PaymentRecorder.apply_q10_report!(reference: reference, result: result)
-    result[:reported]
-  rescue ::Q10::ApiClient::Error => e
-    Rails.logger.error("[Q10] Reintento de reporte falló para #{reference}: #{e.message}")
-    PaymentRecorder.apply_q10_report!(reference: reference, result: { reported: false, error: e.message })
     false
   end
 

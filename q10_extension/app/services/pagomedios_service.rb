@@ -16,7 +16,7 @@ class PagomediosService
   def initialize
     @token = ENV.fetch("PAGOMEDIOS_API_TOKEN", nil)
     raise Error, "PAGOMEDIOS_API_TOKEN no está configurado en .env" if @token.blank?
-    Rails.logger.info "[Pagomedios] Service initialized (token present, length=#{@token.length})"
+    Rails.logger.debug "[Pagomedios] Token configurado"
   end
 
   # Crea una solicitud de pago o link de pago y devuelve la URL para que el usuario pague.

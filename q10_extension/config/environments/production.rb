@@ -53,6 +53,8 @@ Rails.application.configure do
   config.active_job.queue_adapter = :solid_queue
   config.solid_queue.connects_to = { database: { writing: :queue } }
 
+  # Correo: SPARKPOST_SMTP_API_KEY obligatorio en runtime (ver .env.example).
+  # No se valida en boot para no bloquear assets:precompile.
   config.action_mailer.delivery_method = :smtp
   config.action_mailer.perform_deliveries = true
   config.action_mailer.raise_delivery_errors = true
@@ -74,12 +76,6 @@ Rails.application.configure do
   # Only use :id for inspections in production.
   config.active_record.attributes_for_inspect = [ :id ]
 
-  # Enable DNS rebinding protection and other `Host` header attacks.
-  # config.hosts = [
-  #   "example.com",     # Allow requests from example.com
-  #   /.*\.example\.com/ # Allow requests from subdomains like `www.example.com`
-  # ]
-  #
-  # Skip DNS rebinding protection for the default health check endpoint.
-  # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+  allowed_hosts = ENV.fetch("ALLOWED_HOSTS", ENV.fetch("APP_HOST", "")).split(",").map(&:strip).reject(&:blank?)
+  config.hosts = allowed_hosts if allowed_hosts.any?
 end

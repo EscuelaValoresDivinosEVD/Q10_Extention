@@ -86,7 +86,7 @@ class PaymentsController < ApplicationController
     PaymentRecorder.apply_webhook!(reference: reference, status: status, webhook_payload: payload)
     Rails.logger.info "[Pagomedios Webhook] Sesión #{reference} actualizada a #{status}"
 
-    report_payment_to_q10(session) if status == "authorized"
+    ::Q10::ReportOrchestrator.report_and_record!(session) if status == "authorized"
     reference
   end
 
@@ -110,22 +110,6 @@ class PaymentsController < ApplicationController
     else
       payment_result_url(reference: reference.presence || params[:reference])
     end
-  end
-
-  def report_payment_to_q10(session)
-    result = ::Q10::PaymentReporter.new.report!(session)
-    if result[:reported]
-      Rails.logger.info "[Q10] Pago #{session[:reference]} reportado correctamente."
-    elsif result[:skipped]
-      Rails.logger.info "[Q10] Reporte omitido para #{session[:reference]}: #{result[:reason]}"
-    end
-    PaymentRecorder.apply_q10_report!(reference: session[:reference], result: result)
-    result
-  rescue ::Q10::ApiClient::Error => e
-    Rails.logger.error "[Q10] No se pudo reportar pago #{session[:reference]}: #{e.message}"
-    result = { reported: false, error: e.message }
-    PaymentRecorder.apply_q10_report!(reference: session[:reference], result: result)
-    result
   end
 
   def record_payment_failure(reference, amount, description, error_message)
@@ -180,8 +164,6 @@ class PaymentsController < ApplicationController
   end
 
   def build_reference
-    return "CLEV-#{Time.current.strftime('%Y%m%d%H%M%S')}-#{SecureRandom.hex(3).upcase}" if cuota_payment?
-
     params[:reference].presence || "CLEV-#{Time.current.strftime('%Y%m%d%H%M%S')}-#{SecureRandom.hex(3).upcase}"
   end
 
