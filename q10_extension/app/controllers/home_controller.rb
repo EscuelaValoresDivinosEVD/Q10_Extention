@@ -12,7 +12,7 @@ class HomeController < ApplicationController
     end
 
     unless load_q10_creditos_for_student
-      flash.now[:alert] = "No encontramos un estudiante con ese número de identificación en Q10."
+      flash.now[:alert] = q10_access_error_message
       render :index, status: :unprocessable_entity
       return
     end
@@ -26,6 +26,7 @@ class HomeController < ApplicationController
 
     @show_email_modal = true
     @confirmation_email = params[:email].to_s.strip
+    @continue_url = continue_url
     render :index
   end
 
@@ -46,11 +47,35 @@ class HomeController < ApplicationController
 
     result = client.fetch_creditos(numero_identificacion: numero_identificacion)
     @q10_creditos = result[:data]
-    Rails.logger.info("[Q10] Créditos consultados para identificación #{numero_identificacion}.")
-    Array(@q10_creditos).any?
+    Rails.logger.info("[Q10] Créditos consultados para identificación #{numero_identificacion}: #{Array(@q10_creditos).size} encontrados.")
+
+    if Array(@q10_creditos).any?
+      @q10_access_error = nil
+      true
+    else
+      @q10_access_error = :not_found
+      false
+    end
   rescue ::Q10::ApiClient::Error => e
     Rails.logger.error("[Q10] Error consultando créditos para identificación #{numero_identificacion}: #{e.message}")
-    ENV["Q10_SKIP_CREDITOS_CHECK"] == "true"
+    return true if ENV["Q10_SKIP_CREDITOS_CHECK"] == "true"
+
+    @q10_access_error = :api_error
+    @q10_access_error_detail = e.message
+    false
+  end
+
+  def q10_access_error_message
+    case @q10_access_error
+    when :api_error
+      if Rails.env.development?
+        "No fue posible conectar con Q10. Verifica Q10_SUBSCRIPTION_KEY y Q10_API_KEY en .env."
+      else
+        "No fue posible consultar Q10 en este momento. Intenta de nuevo más tarde."
+      end
+    else
+      "No encontramos un estudiante con ese número de identificación en Q10."
+    end
   end
 
   def send_continue_link

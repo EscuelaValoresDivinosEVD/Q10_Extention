@@ -115,6 +115,12 @@
             Enviamos un correo electrónico a <strong class="clev-modal__email"><%= @confirmation_email %></strong>
             con tu enlace de continuación. Si no lo ves, revisa la carpeta de spam o correo no deseado.
           </p>
+          <% if @continue_url.present? %>
+            <p class="clev-modal__text clev-modal__text--link-label">También puedes continuar desde este enlace:</p>
+            <p class="clev-modal__link-wrap">
+              <%= link_to @continue_url, @continue_url, class: "clev-modal__link", target: "_blank", rel: "noopener noreferrer" %>
+            </p>
+          <% end %>
           <form method="dialog" class="clev-modal__actions">
             <button type="submit" class="clev-modal__btn">Entendido</button>
           </form>

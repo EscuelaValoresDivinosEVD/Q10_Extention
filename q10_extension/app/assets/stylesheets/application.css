@@ -627,6 +627,34 @@ body {
   word-break: break-all;
 }
 
+.clev-modal__text--link-label {
+  margin-bottom: 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.clev-modal__link-wrap {
+  margin: 0 0 1.25rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--clev-sand) 55%, var(--clev-white));
+  border: 1px solid color-mix(in srgb, var(--clev-slate) 18%, transparent);
+}
+
+.clev-modal__link {
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--clev-slate);
+  word-break: break-all;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.clev-modal__link:hover {
+  color: color-mix(in srgb, var(--clev-slate) 75%, black);
+}
+
 .clev-modal__actions {
   margin: 0;
 }
