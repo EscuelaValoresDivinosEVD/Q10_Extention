@@ -88,7 +88,7 @@ heroku config:set ALLOWED_HOSTS=clev.evdsky.com
 git push heroku main
 ```
 
-El `Procfile` levanta Puma y ejecuta `db:prepare` en cada release.
+El `Procfile` levanta Puma y en cada release corre `heroku:release` (migraciones + tablas Solid Queue/Cache/Cable).
 
 ## Tests
 
