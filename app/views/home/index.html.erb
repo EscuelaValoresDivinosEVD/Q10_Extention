@@ -49,7 +49,7 @@
       <section class="clev-card__form" id="acceso-estudiante" aria-labelledby="clev-form-heading">
         <h2 id="clev-form-heading" class="clev-card__heading clev-card__heading--form">Acceder</h2>
         <p class="clev-tip clev-tip--compact">
-          <strong>Recomendación:</strong> usa el mismo correo registrado en tu matrícula.
+          <strong>Importante:</strong> el correo debe coincidir con el registrado en Q10 para tu documento.
         </p>
 
         <% if flash[:alert] %>
@@ -61,11 +61,13 @@
             <label for="document_type">Tipo de documento</label>
             <select name="document_type" id="document_type" required>
               <option value="" disabled <%= "selected" if params[:document_type].blank? %>>Selecciona una opción</option>
-              <option value="cc" <%= "selected" if params[:document_type] == "cc" %>>Cédula de ciudadanía</option>
-              <option value="ti" <%= "selected" if params[:document_type] == "ti" %>>Tarjeta de identidad</option>
-              <option value="ce" <%= "selected" if params[:document_type] == "ce" %>>Cédula de extranjería</option>
-              <option value="pasaporte" <%= "selected" if params[:document_type] == "pasaporte" %>>Pasaporte</option>
-              <option value="nit" <%= "selected" if params[:document_type] == "nit" %>>NIT</option>
+              <% @document_types.each do |tipo| %>
+                <option
+                  value="<%= tipo[:code] %>"
+                  <%= "selected" if params[:document_type] == tipo[:code] %>
+                  <% if tipo[:pattern].present? %>data-pattern="<%= tipo[:pattern] %>"<% end %>
+                ><%= tipo[:name] %></option>
+              <% end %>
             </select>
           </div>
 
@@ -76,10 +78,11 @@
               name="document"
               id="document"
               value="<%= params[:document] %>"
-              placeholder="Ej. 10203040"
+              placeholder="Ingresa tu número de documento"
               autocomplete="off"
               required
             />
+            <p class="clev-field-hint" id="document-hint" hidden></p>
           </div>
 
           <div class="clev-field">
@@ -129,12 +132,6 @@
     </dialog>
     <script>
       (function () {
-        var raiz = "<%= root_path %>";
-        function urlALaRaiz() {
-          if (window.history && window.history.replaceState) {
-            history.replaceState(null, "", raiz);
-          }
-        }
         function limpiarFormularioAcceso() {
           var f = document.getElementById("clev-acceso-form");
           if (!f) return;
@@ -145,16 +142,11 @@
           if (em) em.value = "";
           if (sel) sel.selectedIndex = 0;
         }
-        function alCerrarModalCorreo() {
-          urlALaRaiz();
-          limpiarFormularioAcceso();
-        }
         function abrirModalCorreo() {
           var d = document.getElementById("clev-email-modal");
           if (d && typeof d.showModal === "function") {
             d.showModal();
-            urlALaRaiz();
-            d.addEventListener("close", alCerrarModalCorreo);
+            d.addEventListener("close", limpiarFormularioAcceso);
           }
         }
         if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", abrirModalCorreo);
@@ -162,4 +154,60 @@
       })();
     </script>
   <% end %>
+
+  <script>
+    (function () {
+      var form = document.getElementById("clev-acceso-form");
+      if (!form) return;
+
+      var select = form.querySelector("#document_type");
+      var documentInput = form.querySelector("#document");
+      var hint = document.getElementById("document-hint");
+
+      function selectedPattern() {
+        if (!select || select.selectedIndex < 0) return null;
+        var option = select.options[select.selectedIndex];
+        return option ? option.getAttribute("data-pattern") : null;
+      }
+
+      function validateDocument() {
+        if (!documentInput || !hint) return true;
+
+        var value = documentInput.value.trim();
+        var pattern = selectedPattern();
+
+        if (!pattern || !value) {
+          hint.hidden = true;
+          hint.textContent = "";
+          documentInput.setCustomValidity("");
+          return true;
+        }
+
+        try {
+          var regex = new RegExp(pattern);
+          if (regex.test(value)) {
+            hint.hidden = true;
+            hint.textContent = "";
+            documentInput.setCustomValidity("");
+            return true;
+          }
+
+          hint.hidden = false;
+          hint.textContent = "El número de documento no coincide con el formato del tipo seleccionado.";
+          documentInput.setCustomValidity(hint.textContent);
+          return false;
+        } catch (_error) {
+          hint.hidden = true;
+          documentInput.setCustomValidity("");
+          return true;
+        }
+      }
+
+      if (select) select.addEventListener("change", validateDocument);
+      if (documentInput) documentInput.addEventListener("input", validateDocument);
+      form.addEventListener("submit", function (event) {
+        if (!validateDocument()) event.preventDefault();
+      });
+    })();
+  </script>
 </div>

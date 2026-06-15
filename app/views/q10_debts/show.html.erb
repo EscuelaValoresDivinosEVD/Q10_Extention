@@ -161,10 +161,11 @@ end %>
           <% if cuotas.any? %>
             <section class="block block--nested block-cuotas">
               <h3 class="block-title">
-                Cuotas pactadas<% if cuotas_pendientes.any? %> <span class="block-hint">(Seleccione las cuotas que desea pagar)</span><% end %>
+                Cuotas pactadas<% if cuotas_pendientes.any? %> <span class="block-hint">(Seleccione desde la cuota más vencida; puede pagar una o varias consecutivas)</span><% end %>
               </h3>
 
               <% if cuotas_pendientes.any? %>
+                <% cuotas_pendientes_orden = CuotaSelection.pending_numbers_in_order(cuotas) %>
                 <%= form_with url: pagar_path, method: :post, local: true, data: { turbo: false }, class: "panel-payment-form panel-cuotas-form", id: "clev-payment-selector-#{tab_id}" do %>
                   <input type="hidden" name="return_token" value="<%= params[:token] %>" />
                   <input type="hidden" name="numero_identificacion" value="<%= @numero_identificacion %>" />
@@ -172,6 +173,7 @@ end %>
                   <input type="hidden" name="codigo_cajero" value="<%= credit['Codigo_cajero'] %>" />
                   <input type="hidden" name="codigo_estudiante" value="<%= student[:codigo_estudiante] %>" />
                   <input type="hidden" name="consecutivo_credito" value="<%= credit['Consecutivo_credito'] %>" />
+                  <input type="hidden" name="pending_cuotas_order" value="<%= cuotas_pendientes_orden.join(",") %>" />
                   <input type="hidden" name="cuotas" class="clev-payment-cuotas" value="" />
                   <input type="hidden" name="amount" class="clev-payment-amount" value="" />
                   <input type="hidden" name="currency" value="USD" />
@@ -308,6 +310,19 @@ end %>
         return "$" + value.toFixed(2);
       }
 
+      function rowFor(check) {
+        return check.closest("tr");
+      }
+
+      function updateAvailability() {
+        checks.forEach(function (check, index) {
+          var row = rowFor(check);
+          var locked = index > 0 && !checks[index - 1].checked;
+          check.disabled = locked;
+          row.classList.toggle("is-cuota-locked", locked);
+        });
+      }
+
       function refreshTotals() {
         var selected = checks.filter(function (check) { return check.checked; });
         var total = selected.reduce(function (sum, check) {
@@ -321,16 +336,41 @@ end %>
         totalNode.textContent = formatMoney(total);
         if (masterCheck) {
           masterCheck.checked = checks.length > 0 && selected.length === checks.length;
+          masterCheck.indeterminate = selected.length > 0 && selected.length < checks.length;
         }
       }
 
-      checks.forEach(function (check) { check.addEventListener("change", refreshTotals); });
+      checks.forEach(function (check, index) {
+        check.addEventListener("change", function () {
+          if (check.checked && index > 0 && !checks[index - 1].checked) {
+            check.checked = false;
+            window.alert("Debes seleccionar primero las cuotas más vencidas, en orden consecutivo.");
+            return;
+          }
+
+          if (!check.checked) {
+            for (var i = index + 1; i < checks.length; i += 1) {
+              checks[i].checked = false;
+            }
+          }
+
+          updateAvailability();
+          refreshTotals();
+        });
+      });
+
       if (masterCheck) {
         masterCheck.addEventListener("change", function () {
-          checks.forEach(function (check) { check.checked = masterCheck.checked; });
+          checks.forEach(function (check, index) {
+            check.disabled = false;
+            check.checked = masterCheck.checked;
+          });
+          updateAvailability();
           refreshTotals();
         });
       }
+
+      updateAvailability();
       refreshTotals();
 
       form.addEventListener("submit", function (event) {

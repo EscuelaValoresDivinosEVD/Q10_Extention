@@ -74,7 +74,7 @@ class Q10DebtsController < ApplicationController
         label: labels[index],
         student: build_student_summary(credit),
         debt_summary: build_debt_summary(credit),
-        cuotas: Array(credit["Cuotas"]),
+        cuotas: CuotaSelection.sorted(Array(credit["Cuotas"])),
         ordenes_pago: Array(credit["Ordenes_pago"]),
         credit: credit
       }

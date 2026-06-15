@@ -8,6 +8,7 @@ Rails.application.routes.draw do
 
   # Entrada estudiantes CLEV → luego flujo Pagomedios
   root "home#index"
+  get "acceder", to: "home#acceder", as: :acceder_get
   post "acceder", to: "home#create", as: :acceder
   get "continuar", to: "q10_debts#show", as: :q10_continue
 
@@ -19,6 +20,10 @@ Rails.application.routes.draw do
 
   # Webhook/callback Pagomedios (POST servidor; a veces el navegador también llega aquí)
   match "payments/webhook", to: "payments#webhook", via: [ :get, :post ], as: :payments_webhook
+
+  namespace :admin do
+    resources :payments, only: [ :index, :show ], path: "pagos"
+  end
 
   # Defines the root path route ("/")
   # root "posts#index"

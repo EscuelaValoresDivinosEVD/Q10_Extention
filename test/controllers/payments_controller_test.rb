@@ -67,12 +67,26 @@ class PaymentsControllerTest < ActionDispatch::IntegrationTest
         numero_identificacion: "81181178",
         codigo_estudiante: "117845823986",
         consecutivo_credito: "655",
-        cuotas: "3",
-        description: "Pago cuota 3"
+        pending_cuotas_order: "2,3",
+        cuotas: "2",
+        description: "Pago cuota 2"
       }
     end
     assert_response :redirect
     assert_match %r{\Ahttps://pay\.example\.com/}, response.redirect_url
+  end
+
+  test "POST /pagar rechaza cuotas fuera de orden consecutivo" do
+    post pagar_path, params: {
+      amount: "116",
+      currency: "USD",
+      return_token: "token-test",
+      pending_cuotas_order: "2,3",
+      cuotas: "3",
+      description: "Pago cuota 3"
+    }
+    assert_response :redirect
+    assert_match(/payment_error=.*cuota/, response.redirect_url)
   end
 
   test "POST /pagar cuando la API falla muestra error en el formulario" do
