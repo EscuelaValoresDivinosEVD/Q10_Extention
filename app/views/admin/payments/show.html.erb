@@ -1,0 +1,132 @@
+<% content_for :title, "Pago #{@payment.reference}" %>
+
+<div class="panel-page admin-payments-page">
+  <header class="panel-banner">
+    <div>
+      <p class="panel-kicker">Administración</p>
+      <h1 class="panel-title">Detalle del pago</h1>
+      <p class="panel-doc"><%= @payment.reference %></p>
+    </div>
+    <div class="panel-banner-right">
+      <%= link_to "← Volver al listado", admin_payments_path, class: "btn btn-ghost" %>
+    </div>
+  </header>
+
+  <section class="card block">
+    <div class="block-head">
+      <h2 class="block-title">Información general</h2>
+      <span class="<%= payment_status_class(@payment.status) %>">
+        <%= payment_status_label(@payment.status) %>
+      </span>
+    </div>
+
+    <dl class="profile-list">
+      <div class="profile-row">
+        <dt>ID</dt>
+        <dd><%= @payment.id %></dd>
+      </div>
+      <div class="profile-row profile-row--full">
+        <dt>Referencia</dt>
+        <dd><%= @payment.reference %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Monto</dt>
+        <dd><%= number_to_currency(@payment.amount, unit: "$", precision: 2) %> <%= @payment.currency %></dd>
+      </div>
+      <div class="profile-row profile-row--full">
+        <dt>Descripción</dt>
+        <dd><%= @payment.description.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Identificación</dt>
+        <dd><%= @payment.numero_identificacion.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Código persona</dt>
+        <dd><%= @payment.codigo_persona.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Consecutivo crédito</dt>
+        <dd><%= @payment.consecutivo_credito.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Cuotas</dt>
+        <dd><%= payment_cuotas_label(@payment.cuotas) %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Código cajero</dt>
+        <dd><%= @payment.codigo_cajero.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Creado</dt>
+        <dd><%= l(@payment.created_at, format: :long) %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Actualizado</dt>
+        <dd><%= l(@payment.updated_at, format: :long) %></dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="card block">
+    <h2 class="block-title">Pagomedios</h2>
+    <dl class="profile-list">
+      <div class="profile-row profile-row--full">
+        <dt>Referencia Pagomedios</dt>
+        <dd><%= @payment.pagomedios_reference.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Código autorización</dt>
+        <dd><%= @payment.authorization_code.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Tarjeta</dt>
+        <dd><%= @payment.card_number_masked.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Marca</dt>
+        <dd><%= @payment.card_brand.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Titular</dt>
+        <dd><%= @payment.card_holder.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Fecha transacción</dt>
+        <dd><%= @payment.transaction_at ? l(@payment.transaction_at, format: :long) : "—" %></dd>
+      </div>
+      <div class="profile-row profile-row--full">
+        <dt>Mensaje</dt>
+        <dd><%= @payment.pagomedios_message.presence || "—" %></dd>
+      </div>
+      <% if @payment.error_message.present? %>
+        <div class="profile-row profile-row--full">
+          <dt>Error</dt>
+          <dd><%= @payment.error_message %></dd>
+        </div>
+      <% end %>
+    </dl>
+  </section>
+
+  <section class="card block">
+    <h2 class="block-title">Reporte Q10</h2>
+    <dl class="profile-list">
+      <div class="profile-row">
+        <dt>Reportado</dt>
+        <dd><%= payment_q10_label(@payment.q10_reported) %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Fecha reporte</dt>
+        <dd><%= @payment.q10_reported_at ? l(@payment.q10_reported_at, format: :long) : "—" %></dd>
+      </div>
+      <% if @payment.q10_error.present? %>
+        <div class="profile-row profile-row--full">
+          <dt>Error Q10</dt>
+          <dd><%= @payment.q10_error %></dd>
+        </div>
+      <% end %>
+    </dl>
+  </section>
+
+  <footer class="panel-footer">© CLEV · Panel de pagos</footer>
+</div>

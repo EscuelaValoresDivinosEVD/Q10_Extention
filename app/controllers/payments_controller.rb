@@ -23,6 +23,10 @@ class PaymentsController < ApplicationController
       return render_payment_error("Selecciona al menos una cuota para continuar con el pago.")
     end
 
+    if cuota_payment? && !valid_pending_cuota_selection?
+      return render_payment_error("Debes pagar desde la cuota más vencida y en orden consecutivo.")
+    end
+
     reference = build_reference
     description = params[:description].presence || default_description(reference)
 
@@ -161,6 +165,13 @@ class PaymentsController < ApplicationController
 
   def selected_cuotas
     Array(params[:cuotas]).flat_map { |value| value.to_s.split(",") }.map(&:strip).reject(&:blank?)
+  end
+
+  def valid_pending_cuota_selection?
+    order = params[:pending_cuotas_order].to_s.split(",").map(&:strip).reject(&:blank?)
+    return true if order.empty?
+
+    CuotaSelection.valid_selection?(order, selected_cuotas)
   end
 
   def build_reference

@@ -1,0 +1,72 @@
+<% content_for :title, "Pagos registrados" %>
+
+<div class="panel-page admin-payments-page">
+  <header class="panel-banner">
+    <div>
+      <p class="panel-kicker">Administración</p>
+      <h1 class="panel-title">Pagos registrados</h1>
+      <p class="panel-doc"><%= pluralize(@payments.size, "registro", "registros") %> en total</p>
+    </div>
+  </header>
+
+  <% if @status_counts.any? %>
+    <section class="card block admin-payments-summary" aria-label="Resumen por estado">
+      <% Payment::STATUSES.each do |status| %>
+        <% count = @status_counts[status].to_i %>
+        <div class="admin-payments-summary__item">
+          <span class="<%= payment_status_class(status) %>"><%= payment_status_label(status) %></span>
+          <strong><%= count %></strong>
+        </div>
+      <% end %>
+    </section>
+  <% end %>
+
+  <section class="card block">
+    <% if @payments.empty? %>
+      <p class="block-text">Aún no hay pagos registrados en la base de datos.</p>
+    <% else %>
+      <div class="admin-payments-table-wrap">
+        <table class="admin-payments-table">
+          <thead>
+            <tr>
+              <th scope="col">ID</th>
+              <th scope="col">Referencia</th>
+              <th scope="col">Estado</th>
+              <th scope="col">Monto</th>
+              <th scope="col">Identificación</th>
+              <th scope="col">Cuotas</th>
+              <th scope="col">Crédito</th>
+              <th scope="col">Q10</th>
+              <th scope="col">Creado</th>
+              <th scope="col"><span class="visually-hidden">Detalle</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @payments.each do |payment| %>
+              <tr>
+                <td><%= payment.id %></td>
+                <td class="admin-payments-table__reference"><%= payment.reference %></td>
+                <td>
+                  <span class="<%= payment_status_class(payment.status) %>">
+                    <%= payment_status_label(payment.status) %>
+                  </span>
+                </td>
+                <td><%= number_to_currency(payment.amount, unit: "$", precision: 2) %> <%= payment.currency %></td>
+                <td><%= payment.numero_identificacion.presence || "—" %></td>
+                <td><%= payment_cuotas_label(payment.cuotas) %></td>
+                <td><%= payment.consecutivo_credito.presence || "—" %></td>
+                <td><%= payment_q10_label(payment.q10_reported) %></td>
+                <td><%= l(payment.created_at, format: :short) %></td>
+                <td>
+                  <%= link_to "Ver", admin_payment_path(payment), class: "btn btn-ghost admin-payments-table__link" %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </section>
+
+  <footer class="panel-footer">© CLEV · Panel de pagos</footer>
+</div>

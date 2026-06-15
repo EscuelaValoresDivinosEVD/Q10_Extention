@@ -7,6 +7,7 @@ require "uri"
 module Q10
   class ApiClient
     class Error < StandardError; end
+    class NotFoundError < Error; end
 
     def initialize(config: Rails.application.config_for(:q10).deep_symbolize_keys)
       @config = config
@@ -14,6 +15,36 @@ module Q10
 
     def enabled?
       @config[:enabled]
+    end
+
+    def fetch_estudiante(numero_identificacion:)
+      raise Error, "La integración Q10 está deshabilitada." unless enabled?
+      raise Error, "Numero_identificacion es obligatorio." if numero_identificacion.blank?
+
+      encoded_id = URI.encode_www_form_component(numero_identificacion.to_s.strip)
+      uri = URI("#{base_url}/estudiantes/#{encoded_id}")
+
+      response = perform_with_fallbacks(uri, method: "GET") { |attempt_uri, headers| perform_get(attempt_uri, headers) }
+      raise NotFoundError, "Estudiante no encontrado en Q10." if response.code.to_i == 404
+
+      handle_response(response)
+
+      { success: true, data: parsed_body, status: @last_response.code.to_i }
+    rescue JSON::ParserError
+      raise Error, "Q10 devolvió una respuesta no válida."
+    end
+
+    def fetch_tipos_identificacion(limit: 30, offset: 1)
+      raise Error, "La integración Q10 está deshabilitada." unless enabled?
+
+      uri = URI("#{base_url}/tiposidentificacion")
+      uri.query = URI.encode_www_form(Limit: limit, Offset: offset)
+
+      handle_response(perform_with_fallbacks(uri, method: "GET") { |attempt_uri, headers| perform_get(attempt_uri, headers) })
+
+      { success: true, data: parsed_body, status: @last_response.code.to_i }
+    rescue JSON::ParserError
+      raise Error, "Q10 devolvió una respuesta no válida."
     end
 
     def fetch_creditos(numero_identificacion:)
