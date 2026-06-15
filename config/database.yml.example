@@ -1,0 +1,38 @@
+# Copia a config/database.yml y ajusta credenciales locales.
+# En producción usa variables de entorno (ver .env.example).
+
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV["DB_POOL"] || ENV["RAILS_MAX_THREADS"] || 5 %>
+  username: <%= ENV["DB_USERNAME"] %>
+  password: <%= ENV["DB_PASSWORD"] %>
+  host: <%= ENV["DB_HOST"] if ENV["DB_HOST"] %>
+  port: <%= ENV["DB_PORT"] if ENV["DB_PORT"] %>
+
+development:
+  <<: *default
+  database: q10_extension_development
+
+test:
+  <<: *default
+  database: q10_extension_test
+
+production:
+  primary: &primary_production
+    <<: *default
+    database: q10_extension_production
+    username: q10_extension
+    password: <%= ENV["Q10_EXTENSION_DATABASE_PASSWORD"] %>
+  cache:
+    <<: *primary_production
+    database: q10_extension_production_cache
+    migrations_paths: db/cache_migrate
+  queue:
+    <<: *primary_production
+    database: q10_extension_production_queue
+    migrations_paths: db/queue_migrate
+  cable:
+    <<: *primary_production
+    database: q10_extension_production_cable
+    migrations_paths: db/cable_migrate

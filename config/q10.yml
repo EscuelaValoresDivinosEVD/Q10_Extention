@@ -1,0 +1,22 @@
+# Integración Q10 — credenciales solo por variables de entorno (ver .env.example).
+default: &default
+  enabled: <%= ENV.fetch("Q10_ENABLED", "true") == "true" %>
+  base_url: <%= ENV.fetch("Q10_API_BASE_URL", "https://api.q10.com/v1") %>
+  consecutivo_periodo: <%= ENV.fetch("Q10_CONSECUTIVO_PERIODO", "12") %>
+  subscription_key: <%= ENV["Q10_SUBSCRIPTION_KEY"] %>
+  api_key: <%= ENV["Q10_API_KEY"] %>
+  open_timeout: <%= ENV.fetch("Q10_API_OPEN_TIMEOUT", 10) %>
+  read_timeout: <%= ENV.fetch("Q10_API_READ_TIMEOUT", 20) %>
+  codigo_cajero: <%= ENV["Q10_CODIGO_CAJERO"] %>
+  payment_account_name: <%= ENV.fetch("Q10_PAYMENT_ACCOUNT_NAME", "Pagosmedios") %>
+  payment_method_name: <%= ENV.fetch("Q10_PAYMENT_METHOD_NAME", "Pagosmedios") %>
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+  enabled: false
+
+production:
+  <<: *default
