@@ -16,8 +16,9 @@ namespace :heroku do
       ActiveRecord::Base.establish_connection(config)
       next if ActiveRecord::Base.connection.table_exists?(marker_table)
 
-      puts "Loading db/#{role}_schema.rb..."
-      Rake::Task["db:schema:load:#{role}"].invoke
+      schema_file = Rails.root.join("db/#{role}_schema.rb")
+      puts "Loading #{schema_file}..."
+      load schema_file
     end
   ensure
     ActiveRecord::Base.establish_connection(:primary) if ActiveRecord::Base.configurations.configs_for(env_name: Rails.env, name: "primary")
