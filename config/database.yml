@@ -85,18 +85,28 @@ test:
 production:
   primary: &primary_production
     <<: *default
+<% if ENV["DATABASE_URL"] %>
+    url: <%= ENV["DATABASE_URL"] %>
+<% else %>
     database: q10_extension_production
     username: q10_extension
     password: <%= ENV["Q10_EXTENSION_DATABASE_PASSWORD"] %>
+<% end %>
   cache:
     <<: *primary_production
+<% unless ENV["DATABASE_URL"] %>
     database: q10_extension_production_cache
+<% end %>
     migrations_paths: db/cache_migrate
   queue:
     <<: *primary_production
+<% unless ENV["DATABASE_URL"] %>
     database: q10_extension_production_queue
+<% end %>
     migrations_paths: db/queue_migrate
   cable:
     <<: *primary_production
+<% unless ENV["DATABASE_URL"] %>
     database: q10_extension_production_cable
+<% end %>
     migrations_paths: db/cable_migrate

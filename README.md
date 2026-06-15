@@ -75,6 +75,21 @@ Consulta `.env.example` para la lista completa.
 | `/payments/webhook` | Callback de Pagomedios |
 | `/up` | Health check |
 
+## Despliegue en Heroku
+
+```bash
+heroku create clev-evd
+heroku addons:create heroku-postgresql:essential-0
+heroku config:set SOLID_QUEUE_IN_PUMA=true
+heroku config:set APP_HOST=clev.evdsky.com
+heroku config:set ALLOWED_HOSTS=clev.evdsky.com
+# Configura también PAGOMEDIOS_*, Q10_*, SPARKPOST_* y RAILS_MASTER_KEY
+
+git push heroku main
+```
+
+El `Procfile` levanta Puma y ejecuta `db:prepare` en cada release.
+
 ## Tests
 
 ```bash
