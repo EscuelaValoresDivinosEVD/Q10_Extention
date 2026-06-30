@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_06_06_130824) do
+ActiveRecord::Schema[8.0].define(version: 2026_06_27_134533) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -43,6 +43,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_06_130824) do
     t.string "return_token"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "codigo_estudiante"
     t.index ["consecutivo_credito"], name: "index_payments_on_consecutivo_credito"
     t.index ["created_at"], name: "index_payments_on_created_at"
     t.index ["numero_identificacion"], name: "index_payments_on_numero_identificacion"

@@ -72,13 +72,22 @@ module Q10
       uri = URI("#{base_url}/pagos/creditos")
       body = payload.to_json
 
-      handle_response(
-        perform_with_fallbacks(uri, method: "POST") do |attempt_uri, headers|
-          perform_post(attempt_uri, headers, body)
-        end
-      )
+      response = perform_with_fallbacks(uri, method: "POST") do |attempt_uri, headers|
+        perform_post(attempt_uri, headers, body)
+      end
+      @last_response = response
+      @parsed_body = parse_json(response.body)
 
-      { success: true, data: parsed_body, status: @last_response.code.to_i }
+      if response.is_a?(Net::HTTPSuccess)
+        return { success: true, data: parsed_body, status: response.code.to_i }
+      end
+
+      if duplicate_payment_report?(response.code.to_i, parsed_body)
+        Rails.logger.info("[Q10] Reporte de pago ya existía en Q10; se trata como exitoso (idempotente).")
+        return { success: true, data: parsed_body, status: response.code.to_i, idempotent: true }
+      end
+
+      raise Error, "Q10 respondió con error #{response.code}: #{@parsed_body}"
     rescue JSON::ParserError
       raise Error, "Q10 devolvió una respuesta no válida."
     end
@@ -217,6 +226,28 @@ module Q10
 
     def consecutivo_periodo
       @config[:consecutivo_periodo]
+    end
+
+    def duplicate_payment_report?(status_code, body)
+      return true if status_code == 409
+
+      text = duplicate_report_text(body)
+      return false if text.blank?
+
+      text.match?(
+        /ya existe|ya fue registrad|duplicad|already|registrado previamente|pago repetido|existe un pago|fue reportad/
+      )
+    end
+
+    def duplicate_report_text(body)
+      case body
+      when Hash
+        body.values.flat_map { |value| duplicate_report_text(value) }.join(" ")
+      when Array
+        body.flat_map { |value| duplicate_report_text(value) }.join(" ")
+      else
+        body.to_s
+      end.downcase
     end
   end
 end

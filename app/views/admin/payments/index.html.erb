@@ -18,6 +18,53 @@
           <strong><%= count %></strong>
         </div>
       <% end %>
+      <div class="admin-payments-summary__item">
+        <span class="status-pill status-pill--pending">Sin reportar en Q10</span>
+        <strong><%= @q10_pending_report_count %></strong>
+      </div>
+    </section>
+  <% end %>
+
+  <% if @q10_pending_payments.any? %>
+    <section class="card block" aria-label="Pagos aprobados pendientes de reporte en Q10">
+      <div class="block-head">
+        <h2 class="block-title">Conciliación Q10</h2>
+        <p class="block-hint">Pagos autorizados en Pagomedios que aún no se reportaron en Q10.</p>
+      </div>
+      <div class="admin-payments-table-wrap">
+        <table class="admin-payments-table">
+          <thead>
+            <tr>
+              <th scope="col">Referencia</th>
+              <th scope="col">Monto</th>
+              <th scope="col">Identificación</th>
+              <th scope="col">Estado Q10</th>
+              <th scope="col">Motivo</th>
+              <th scope="col">Autorizado</th>
+              <th scope="col"><span class="visually-hidden">Detalle</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @q10_pending_payments.each do |payment| %>
+              <tr>
+                <td class="admin-payments-table__reference"><%= payment.reference %></td>
+                <td><%= number_to_currency(payment.amount, unit: "$", precision: 2) %> <%= payment.currency %></td>
+                <td><%= payment.numero_identificacion.presence || "—" %></td>
+                <td class="admin-payments-table__q10-status">
+                  <span class="<%= payment_q10_status_class(payment) %>">
+                    <%= payment_q10_label(payment) %>
+                  </span>
+                </td>
+                <td><%= payment.q10_error.presence || "Aún no se intentó reportar" %></td>
+                <td><%= payment.transaction_at ? l(payment.transaction_at, format: :short) : l(payment.updated_at, format: :short) %></td>
+                <td>
+                  <%= link_to "Ver", admin_payment_path(payment), class: "btn btn-ghost admin-payments-table__link" %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
     </section>
   <% end %>
 
@@ -55,7 +102,11 @@
                 <td><%= payment.numero_identificacion.presence || "—" %></td>
                 <td><%= payment_cuotas_label(payment.cuotas) %></td>
                 <td><%= payment.consecutivo_credito.presence || "—" %></td>
-                <td><%= payment_q10_label(payment.q10_reported) %></td>
+                <td class="admin-payments-table__q10-status">
+                  <span class="<%= payment_q10_status_class(payment) %>">
+                    <%= payment_q10_label(payment) %>
+                  </span>
+                </td>
                 <td><%= l(payment.created_at, format: :short) %></td>
                 <td>
                   <%= link_to "Ver", admin_payment_path(payment), class: "btn btn-ghost admin-payments-table__link" %>

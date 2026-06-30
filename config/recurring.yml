@@ -13,3 +13,13 @@ production:
   clear_solid_queue_finished_jobs:
     command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
     schedule: every hour at minute 12
+  reconcile_q10_pending_reports:
+    class: Q10::ReconcilePendingReportsJob
+    queue: default
+    schedule: at 3am every day
+
+development:
+  reconcile_q10_pending_reports:
+    class: Q10::ReconcilePendingReportsJob
+    queue: default
+    schedule: at 3am every day

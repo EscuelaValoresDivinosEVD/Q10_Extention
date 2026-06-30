@@ -21,18 +21,18 @@
 
 <div class="panel-page payment-complete-page">
   <section class="card block payment-complete-card">
-    <% if @session[:status] == "authorized" %>
+    <% if @payment&.successful? %>
       <div class="payment-complete-icon payment-complete-icon--success" aria-hidden="true">✓</div>
       <h1 class="block-title payment-complete-title">Pago ejecutado correctamente</h1>
       <p class="block-text payment-complete-lead">
         Tu transacción fue aprobada por Pagomedios.
-        <% if @session[:q10_reported] %>
+        <% if @payment.q10_reported? %>
           El abono ya fue registrado en Q10.
         <% else %>
           Estamos registrando el abono en Q10.
         <% end %>
       </p>
-    <% elsif @session[:status].in?(%w[rejected reversed]) %>
+    <% elsif @payment&.status&.in?(%w[rejected reversed]) %>
       <div class="payment-complete-icon payment-complete-icon--error" aria-hidden="true">!</div>
       <h1 class="block-title payment-complete-title">Pago no completado</h1>
       <p class="block-text payment-complete-lead">
@@ -46,24 +46,24 @@
       </p>
     <% end %>
 
-    <% if @session.present? %>
+    <% if @payment.present? %>
       <dl class="profile-list payment-complete-summary">
-        <% if @session[:reference].present? %>
+        <% if @payment.reference.present? %>
           <div class="profile-row profile-row--full">
             <dt>Referencia</dt>
-            <dd><%= @session[:reference] %></dd>
+            <dd><%= @payment.reference %></dd>
           </div>
         <% end %>
-        <% if @session[:amount].present? %>
+        <% if @payment.amount.present? %>
           <div class="profile-row">
             <dt>Monto</dt>
-            <dd><%= number_to_currency(@session[:amount], unit: "$", precision: 2) %></dd>
+            <dd><%= number_to_currency(@payment.amount, unit: "$", precision: 2) %></dd>
           </div>
         <% end %>
-        <% if @session[:cuotas].present? %>
+        <% if @payment.cuotas.present? %>
           <div class="profile-row">
             <dt>Cuotas</dt>
-            <dd><%= Array(@session[:cuotas]).join(", ") %></dd>
+            <dd><%= Array(@payment.cuotas).join(", ") %></dd>
           </div>
         <% end %>
       </dl>

@@ -1179,6 +1179,26 @@ body {
   cursor: not-allowed;
 }
 
+.panel-table--selectable tr.is-payable.is-cuota-q10-pending {
+  background: rgba(255, 243, 205, 0.45);
+}
+
+.panel-table--selectable tr.is-payable.is-cuota-q10-pending .clev-cuota-check {
+  cursor: not-allowed;
+}
+
+.cuota-q10-pending-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #9a6700;
+}
+
+.block-hint--warning {
+  color: #9a6700;
+}
+
 .panel-table tr.is-paid {
   opacity: 0.55;
 }
@@ -1439,6 +1459,38 @@ body {
   padding: 7px 10px !important;
   font-size: 12px !important;
   white-space: nowrap;
+}
+
+.admin-payments-table__q10-status {
+  min-width: 8.5rem;
+  white-space: nowrap;
+}
+
+.admin-payments-table .status-pill {
+  display: inline-block;
+  white-space: nowrap;
+  line-height: 1.25;
+}
+
+.admin-payments-page .profile-row dd {
+  min-width: 0;
+}
+
+.admin-payments-json {
+  margin: 0;
+  max-width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-white) 88%, var(--panel-sand));
+  border: 1px solid rgba(79, 105, 110, 0.12);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  overflow-x: auto;
 }
 
 .status-pill--authorized {

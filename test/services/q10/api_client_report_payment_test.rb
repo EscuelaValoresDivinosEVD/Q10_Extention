@@ -39,4 +39,25 @@ class Q10::ApiClientReportPaymentTest < ActiveSupport::TestCase
     assert_equal payload, captured[:body]
     assert result[:success]
   end
+
+  test "report_pago_credito trata respuesta duplicada como exitosa idempotente" do
+    payload = {
+      "Codigo_persona" => "117845823986",
+      "Consecutivo_credito" => 655
+    }
+
+    fake_response = Object.new.tap do |r|
+      r.define_singleton_method(:code) { "400" }
+      r.define_singleton_method(:body) { { "message" => "El pago ya fue registrado previamente" }.to_json }
+      r.define_singleton_method(:is_a?) { |klass| false }
+    end
+
+    client = Q10::ApiClient.new(config: Rails.application.config_for(:q10).deep_symbolize_keys.merge(enabled: true))
+    client.define_singleton_method(:perform_post) { |_uri, _headers, _body| fake_response }
+
+    result = client.report_pago_credito(payload)
+
+    assert result[:success]
+    assert result[:idempotent]
+  end
 end

@@ -3,6 +3,8 @@
 require "test_helper"
 
 class HomeControllerTest < ActionDispatch::IntegrationTest
+  setup { Rails.cache.clear }
+
   test "GET / muestra la landing CLEV" do
     get root_path
     assert_response :success
@@ -39,6 +41,18 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     follow_redirect!
     assert_select "form[action=?]", acceder_path
     assert_select ".clev-flash--alert"
+  end
+
+  test "POST /acceder bloquea tras más de 15 solicitudes desde la misma IP" do
+    15.times do
+      post acceder_path, params: { document_type: "", document: "", email: "" }
+      assert_response :redirect
+    end
+
+    post acceder_path, params: { document_type: "", document: "", email: "" }
+    assert_redirected_to root_path
+    follow_redirect!
+    assert_select ".clev-flash--alert", text: /bloqueado temporalmente/
   end
 
   test "POST /acceder rechaza tipo de documento distinto al registrado en Q10" do

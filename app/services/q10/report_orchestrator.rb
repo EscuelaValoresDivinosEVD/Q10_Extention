@@ -3,9 +3,9 @@
 module Q10
   class ReportOrchestrator
     class << self
-      def report_and_record!(session)
-        reference = session[:reference]
-        result = PaymentReporter.new.report!(session)
+      def report_and_record!(payment)
+        reference = payment.reference
+        result = PaymentReporter.new.report!(payment)
         log_result(reference, result)
         PaymentRecorder.apply_q10_report!(reference: reference, result: result)
         result
@@ -17,10 +17,22 @@ module Q10
       end
 
       def retry_report!(reference)
-        session = PaymentSessionStore.fetch(reference)
-        return false if session.blank? || session[:q10_reported] || session[:status] != "authorized"
+        payment = PaymentRecorder.fetch(reference)
+        return false if payment.blank? || payment.q10_reported? || payment.status != "authorized"
 
-        report_and_record!(session)[:reported]
+        report_and_record!(payment)[:reported]
+      end
+
+      def reconcile_all_pending!(scope: Payment.q10_pending_report)
+        scope.order(:created_at).map do |payment|
+          { reference: payment.reference, result: report_and_record!(payment) }
+        end
+      end
+
+      def reconcile_for_student!(numero_identificacion:)
+        reconcile_all_pending!(
+          scope: Payment.q10_pending_report.where(numero_identificacion: numero_identificacion.to_s.strip)
+        )
       end
 
       private

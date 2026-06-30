@@ -4,24 +4,23 @@ require "test_helper"
 
 class Q10::PaymentReporterTest < ActiveSupport::TestCase
   setup do
-    @session = {
-      reference: "CLEV-TEST",
-      status: "authorized",
+    @attrs = {
       amount: 116.0,
+      currency: "USD",
       codigo_persona: "117845823986",
       codigo_cajero: "221367230991",
       consecutivo_credito: 655,
-      cuotas: [ "3" ],
-      webhook_payload: {
-        status: "1",
-        authorizationCode: "243424",
-        transactionDate: "2026-03-07 11:06:56",
-        cardBrand: "visa"
-      }
+      cuotas: [ "3" ]
+    }
+    @webhook_payload = {
+      status: "1",
+      authorizationCode: "243424",
+      transactionDate: "2026-03-07 11:06:56",
+      cardBrand: "visa"
     }
   end
 
-  test "report! envía payload a Q10 y marca sesión como reportada" do
+  test "report! envía payload a Q10 y devuelve éxito" do
     client = Class.new do
       attr_reader :payload
 
@@ -31,10 +30,10 @@ class Q10::PaymentReporterTest < ActiveSupport::TestCase
       end
     end.new
 
-    PaymentSessionStore.save("CLEV-TEST", @session)
+    payment = create_authorized_payment("CLEV-TEST")
 
     reporter = Q10::PaymentReporter.new(client: client)
-    result = reporter.report!(PaymentSessionStore.fetch("CLEV-TEST"))
+    result = reporter.report!(payment)
 
     assert result[:reported]
     assert_equal "117845823986", client.payload["Codigo_persona"]
@@ -45,26 +44,39 @@ class Q10::PaymentReporterTest < ActiveSupport::TestCase
     assert_equal "Pagosmedios", client.payload["Formas_pago"].first["Nombre_forma_pago"]
     assert_equal 116.0, client.payload["Formas_pago"].first["Valor"]
     assert_match(/CLEV-TEST/, client.payload["Observacion"])
-
-    session = PaymentSessionStore.fetch("CLEV-TEST")
-    assert session[:q10_reported]
   end
 
   test "report! omite si ya fue reportado" do
-    PaymentSessionStore.save("CLEV-TEST", @session.merge(q10_reported: true))
+    payment = create_authorized_payment("CLEV-TEST")
+    PaymentRecorder.apply_q10_report!(reference: payment.reference, result: { reported: true })
 
     reporter = Q10::PaymentReporter.new(client: Object.new)
-    result = reporter.report!(PaymentSessionStore.fetch("CLEV-TEST"))
+    result = reporter.report!(payment.reload)
 
     assert_equal "already_reported", result[:reason]
   end
 
   test "report! omite pagos sin contexto de crédito" do
-    PaymentSessionStore.save("CLEV-TEST", @session.except(:consecutivo_credito, :codigo_persona))
+    PaymentRecorder.record_pending!(
+      reference: "CLEV-TEST",
+      attrs: @attrs.except(:consecutivo_credito, :codigo_persona)
+    )
+    payment = PaymentRecorder.fetch("CLEV-TEST")
 
     reporter = Q10::PaymentReporter.new(client: Object.new)
-    result = reporter.report!(PaymentSessionStore.fetch("CLEV-TEST"))
+    result = reporter.report!(payment)
 
     assert_equal "missing_credit_context", result[:reason]
+  end
+
+  private
+
+  def create_authorized_payment(reference)
+    PaymentRecorder.record_pending!(reference: reference, attrs: @attrs)
+    PaymentRecorder.update_status!(
+      reference: reference,
+      status: "authorized",
+      webhook_payload: @webhook_payload
+    )
   end
 end
