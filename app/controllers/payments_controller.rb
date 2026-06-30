@@ -10,7 +10,7 @@ class PaymentsController < ApplicationController
 
   def show
     @reference = params[:reference].to_s.presence
-    @session = PaymentSessionStore.fetch(@reference) if @reference.present?
+    @payment = PaymentRecorder.fetch(@reference) if @reference.present?
   end
 
   def create
@@ -27,6 +27,13 @@ class PaymentsController < ApplicationController
       return render_payment_error("Debes pagar desde la cuota más vencida y en orden consecutivo.")
     end
 
+    if cuota_payment? && blocked_cuotas_selected?
+      return render_payment_error(
+        "Una o más cuotas seleccionadas tienen un pago aprobado pendiente de registro en Q10. " \
+        "Espera unos minutos e intenta de nuevo."
+      )
+    end
+
     reference = build_reference
     description = params[:description].presence || default_description(reference)
 
@@ -35,7 +42,7 @@ class PaymentsController < ApplicationController
       currency: params[:currency].presence || "USD",
       reference: reference,
       description: description,
-      notify_url: payments_webhook_url,
+      notify_url: pagomedios_notify_url,
       return_url: payment_return_url(reference: reference)
     )
 
@@ -45,7 +52,6 @@ class PaymentsController < ApplicationController
     end
 
     session_payload = build_session_payload(reference, amount, description, result)
-    PaymentSessionStore.save(reference, session_payload)
     PaymentRecorder.record_pending!(reference: reference, attrs: payment_record_attrs(session_payload, result))
 
     redirect_to result[:payment_url], allow_other_host: true
@@ -54,58 +60,94 @@ class PaymentsController < ApplicationController
     render_payment_error(e.message)
   end
 
-  # Retorno del navegador tras pagar (return_url de Pagomedios).
+  # Retorno del navegador tras pagar (return_url de Pagomedios). Solo lectura.
   def return
-    reference = process_pagomedios_notification
-    finish_browser_payment(reference)
+    finish_browser_payment(notification_reference)
   end
 
-  # Webhook Pagomedios (notify_url): notificación servidor; a veces el navegador llega aquí tras pagar.
+  # Webhook Pagomedios (notify_url): notificaciones POST verificadas mutan la BD.
+  # Pagomedios puede enviar el POST desde el navegador del pagador; en ese caso
+  # también se procesa y luego se muestra la pantalla de confirmación.
   def webhook
-    reference = process_pagomedios_notification
+    if processable_pagomedios_notification?
+      unless authenticate_pagomedios_webhook!
+        return browser_callback? ? finish_browser_payment(notification_reference) : head(:forbidden)
+      end
 
-    if browser_callback?
-      finish_browser_payment(reference)
+      process_pagomedios_notification
+
+      if browser_callback?
+        finish_browser_payment(notification_reference)
+      else
+        head :ok
+      end
     else
-      head :ok
+      finish_browser_payment(notification_reference)
     end
   end
 
   private
 
+  def authenticate_pagomedios_webhook!
+    PagomediosWebhookVerifier.authenticate!(request: request, payload: webhook_params.to_h)
+    true
+  rescue PagomediosWebhookVerifier::UnauthorizedError => e
+    Rails.logger.warn(
+      "[Pagomedios Webhook] Solicitud rechazada desde #{request.remote_ip}: #{e.reason}"
+    )
+    false
+  end
+
   def process_pagomedios_notification
     payload = webhook_params.to_h
     Rails.logger.info "[Pagomedios Webhook] #{request.request_method} Params: #{payload.to_json}"
 
-    reference = payload[:customValue].presence || payload[:reference].presence || params[:reference].to_s.presence
-    return reference if reference.blank?
+    reference = notification_reference
+    return if reference.blank?
 
     if payload[:status].blank?
-      Rails.logger.info "[Pagomedios] Callback sin status para #{reference}; se usa el estado guardado."
-      return reference
+      Rails.logger.info "[Pagomedios] Callback sin status para #{reference}; se omite actualización."
+      return
     end
 
     status = map_pagomedios_status(payload[:status])
-    session = PaymentSessionStore.update_status(reference, status: status, webhook_payload: payload)
-    PaymentRecorder.apply_webhook!(reference: reference, status: status, webhook_payload: payload)
-    Rails.logger.info "[Pagomedios Webhook] Sesión #{reference} actualizada a #{status}"
+    payment = PaymentRecorder.update_status!(reference: reference, status: status, webhook_payload: payload)
+    Rails.logger.info "[Pagomedios Webhook] Pago #{reference} actualizado a #{status}"
 
-    ::Q10::ReportOrchestrator.report_and_record!(session) if status == "authorized"
-    reference
+    ::Q10::ReportOrchestrator.report_and_record!(payment) if payment&.successful?
+  end
+
+  def notification_reference
+    webhook_params[:customValue].presence ||
+      webhook_params[:reference].presence ||
+      params[:reference].to_s.presence
+  end
+
+  def processable_pagomedios_notification?
+    request.post? && webhook_params[:status].present? && notification_reference.present?
+  end
+
+  def pagomedios_notify_url
+    secret = ENV["PAGOMEDIOS_WEBHOOK_SECRET"].presence
+    if secret.present?
+      payments_webhook_url(webhook_secret: secret)
+    else
+      payments_webhook_url
+    end
   end
 
   def post_payment_redirect_url(reference)
-    session = PaymentSessionStore.fetch(reference)
+    payment = PaymentRecorder.fetch(reference)
 
-    if session&.dig(:return_token).present?
-      url_params = { token: session[:return_token] }
+    if payment&.return_token.present?
+      url_params = { token: payment.return_token }
 
-      case session[:status]
+      case payment.status
       when "authorized"
         url_params[:payment_success] = "1"
         url_params[:payment_ref] = reference if reference.present?
-        url_params[:consecutivo_credito] = session[:consecutivo_credito] if session[:consecutivo_credito].present?
-        url_params[:q10_pending] = "1" unless session[:q10_reported]
+        url_params[:consecutivo_credito] = payment.consecutivo_credito if payment.consecutivo_credito.present?
+        url_params[:q10_pending] = "1" unless payment.q10_reported?
       when "rejected", "reversed"
         url_params[:payment_error] = "El pago no fue aprobado. Intenta nuevamente."
       end
@@ -131,6 +173,7 @@ class PaymentsController < ApplicationController
       description: session[:description],
       numero_identificacion: session[:numero_identificacion],
       codigo_persona: session[:codigo_persona],
+      codigo_estudiante: session[:codigo_estudiante],
       codigo_cajero: session[:codigo_cajero],
       consecutivo_credito: session[:consecutivo_credito],
       cuotas: Array(session[:cuotas]),
@@ -150,7 +193,7 @@ class PaymentsController < ApplicationController
   end
 
   def finish_browser_payment(reference)
-    @session = PaymentSessionStore.fetch(reference) || {}
+    @payment = PaymentRecorder.fetch(reference)
     @panel_url = post_payment_redirect_url(reference)
     render :complete, layout: "application", status: :ok
   end
@@ -172,6 +215,14 @@ class PaymentsController < ApplicationController
     return true if order.empty?
 
     CuotaSelection.valid_selection?(order, selected_cuotas)
+  end
+
+  def blocked_cuotas_selected?
+    PaymentCuotaLock.any_blocked?(
+      numero_identificacion: params[:numero_identificacion],
+      consecutivo_credito: params[:consecutivo_credito],
+      cuota_numbers: selected_cuotas
+    )
   end
 
   def build_reference

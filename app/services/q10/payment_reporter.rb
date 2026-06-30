@@ -7,32 +7,26 @@ module Q10
       @config = config
     end
 
-    def report!(session)
-      return { skipped: true, reason: "missing_session" } if session.blank?
+    def report!(payment)
+      return { skipped: true, reason: "missing_payment" } if payment.blank?
+      return { skipped: true, reason: "already_reported" } if payment.q10_reported?
+      return { skipped: true, reason: "missing_credit_context" } unless payment.credit_context?
+      return { skipped: true, reason: "missing_codigo_cajero" } if resolve_codigo_cajero(payment).blank?
 
-      reference = session[:reference]
-      return { skipped: true, reason: "already_reported" } if session[:q10_reported]
-      return { skipped: true, reason: "missing_credit_context" } unless credit_context?(session)
-      return { skipped: true, reason: "missing_codigo_cajero" } if resolve_codigo_cajero(session).blank?
-
-      payload = build_payload(session)
+      session = payment.report_context
+      payload = build_payload(session, payment)
       result = @client.report_pago_credito(payload)
-      PaymentSessionStore.mark_q10_reported(reference, response: result)
-      result.merge(reported: true)
+      result.merge(reported: true, idempotent: result[:idempotent])
     end
 
     private
 
-    def credit_context?(session)
-      session[:consecutivo_credito].present? && session[:codigo_persona].present?
-    end
-
-    def build_payload(session)
+    def build_payload(session, payment)
       webhook = normalize_webhook(session[:webhook_payload])
 
       {
         "Codigo_persona" => session[:codigo_persona].to_s,
-        "Codigo_cajero" => resolve_codigo_cajero(session),
+        "Codigo_cajero" => resolve_codigo_cajero(payment),
         "Consecutivo_credito" => session[:consecutivo_credito].to_i,
         "Fecha_pago" => resolve_fecha_pago(webhook),
         "Formas_pago" => [ build_forma_pago(session, webhook) ],
@@ -44,8 +38,8 @@ module Q10
       payload.is_a?(Hash) ? payload.deep_symbolize_keys : {}
     end
 
-    def resolve_codigo_cajero(session)
-      session[:codigo_cajero].presence || @config[:codigo_cajero].presence
+    def resolve_codigo_cajero(payment)
+      payment.codigo_cajero.presence || @config[:codigo_cajero].presence
     end
 
     def resolve_fecha_pago(webhook)

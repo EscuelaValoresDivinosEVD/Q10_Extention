@@ -82,6 +82,7 @@ end %>
         <% ordenes_pago = tab[:ordenes_pago] %>
         <% credit = tab[:credit] %>
         <% cuotas_pendientes = cuotas.select { |cuota| cuota["Pendiente"].to_f.positive? } %>
+        <% blocked_cuotas = Array(@blocked_cuotas_by_credit[tab[:consecutivo_credito].to_i]) %>
         <% program_meta = [
           ("Periodo #{student[:nombre_periodo]}" if student[:nombre_periodo].present?),
           ("#{student[:numero_cuotas]} cuotas" if student[:numero_cuotas].present?),
@@ -165,7 +166,12 @@ end %>
               </h3>
 
               <% if cuotas_pendientes.any? %>
-                <% cuotas_pendientes_orden = CuotaSelection.pending_numbers_in_order(cuotas) %>
+                <% cuotas_pendientes_orden = CuotaSelection.pending_numbers_in_order(cuotas) - blocked_cuotas %>
+                <% if blocked_cuotas.any? %>
+                  <p class="block-hint block-hint--warning">
+                    Las cuotas marcadas como «Registro Q10 pendiente» ya tienen un pago aprobado y no pueden volver a seleccionarse hasta completar el reporte en Q10.
+                  </p>
+                <% end %>
                 <%= form_with url: pagar_path, method: :post, local: true, data: { turbo: false }, class: "panel-payment-form panel-cuotas-form", id: "clev-payment-selector-#{tab_id}" do %>
                   <input type="hidden" name="return_token" value="<%= params[:token] %>" />
                   <input type="hidden" name="numero_identificacion" value="<%= @numero_identificacion %>" />
@@ -202,9 +208,25 @@ end %>
                           <% pending_amount = cuota["Pendiente"].to_f.round(2) %>
                           <% cuota_numero = cuota["Numero_cuota"] || cuota["Número_cuota"] %>
                           <% payable = pending_amount.positive? %>
-                          <tr class="<%= payable ? "is-payable" : "is-paid" %>">
+                          <% q10_pending = payable && blocked_cuotas.include?(cuota_numero.to_s) %>
+                          <tr class="<%= if q10_pending
+                            "is-payable is-cuota-q10-pending"
+                          elsif payable
+                            "is-payable"
+                          else
+                            "is-paid"
+                          end %>">
                             <td class="panel-table-check">
-                              <% if payable %>
+                              <% if q10_pending %>
+                                <input
+                                  type="checkbox"
+                                  class="clev-cuota-check"
+                                  data-q10-pending="true"
+                                  disabled
+                                  aria-label="Cuota <%= cuota_numero %> con registro Q10 pendiente"
+                                  title="Pago aprobado; registro en Q10 pendiente"
+                                />
+                              <% elsif payable %>
                                 <input
                                   type="checkbox"
                                   class="clev-cuota-check"
@@ -214,7 +236,12 @@ end %>
                                 />
                               <% end %>
                             </td>
-                            <td><%= cuota_numero %></td>
+                            <td>
+                              <%= cuota_numero %>
+                              <% if q10_pending %>
+                                <span class="cuota-q10-pending-label">Registro Q10 pendiente</span>
+                              <% end %>
+                            </td>
                             <td><%= cuota["Fecha_cuota"].to_s.first(10) %></td>
                             <td><%= number_to_currency(cuota["Total_cuota_hoy"], unit: "$", precision: 2) %></td>
                             <td><%= number_to_currency(cuota["Pagado"], unit: "$", precision: 2) %></td>
@@ -299,7 +326,7 @@ end %>
     }
 
     function initPaymentForm(form) {
-      var checks = Array.prototype.slice.call(form.querySelectorAll(".clev-cuota-check"));
+      var checks = Array.prototype.slice.call(form.querySelectorAll(".clev-cuota-check:not([data-q10-pending='true'])"));
       var masterCheck = form.querySelector(".clev-select-all-cuotas");
       var amountInput = form.querySelector(".clev-payment-amount");
       var cuotasInput = form.querySelector(".clev-payment-cuotas");

@@ -18,8 +18,8 @@ Rails.application.routes.draw do
   get "pagos/resultado", to: "payments#show", as: :payment_result
   match "payments/return", to: "payments#return", via: [ :get, :post ], as: :payment_return
 
-  # Webhook/callback Pagomedios (POST servidor; a veces el navegador también llega aquí)
-  match "payments/webhook", to: "payments#webhook", via: [ :get, :post ], as: :payments_webhook
+  # Webhook Pagomedios (POST servidor). El segmento webhook_secret valida el remitente.
+  match "payments/webhook(/:webhook_secret)", to: "payments#webhook", via: [ :get, :post ], as: :payments_webhook
 
   namespace :admin do
     resources :payments, only: [ :index, :show ], path: "pagos"

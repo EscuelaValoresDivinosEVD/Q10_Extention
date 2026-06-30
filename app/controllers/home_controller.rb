@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class HomeController < ApplicationController
+  before_action :enforce_access_rate_limit, only: :create
+
   def index
     load_access_confirmation_from_flash
     @document_types = ::Q10::IdentificationTypes.new.all
@@ -36,6 +38,16 @@ class HomeController < ApplicationController
   end
 
   private
+
+  def enforce_access_rate_limit
+    return unless AccessRateLimiter.check!(request, email: params[:email]) == :blocked
+
+    redirect_to root_path, alert: access_rate_limited_message
+  end
+
+  def access_rate_limited_message
+    "Has realizado demasiados intentos de acceso. Por seguridad, el acceso quedó bloqueado temporalmente. Intenta de nuevo en una hora."
+  end
 
   def load_access_confirmation_from_flash
     @show_email_modal = flash[:show_email_modal].present?

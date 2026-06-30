@@ -72,6 +72,22 @@
     <h2 class="block-title">Pagomedios</h2>
     <dl class="profile-list">
       <div class="profile-row profile-row--full">
+        <dt>Token Pagomedios</dt>
+        <dd><%= @payment.pagomedios_token.presence || "—" %></dd>
+      </div>
+      <div class="profile-row profile-row--full">
+        <dt>Enlace de pago</dt>
+        <dd>
+          <% if @payment.successful? %>
+            <span class="block-hint">Enlace deshabilitado — el pago ya fue autorizado.</span>
+          <% elsif @payment.payment_url.present? %>
+            <%= link_to @payment.payment_url, @payment.payment_url, target: "_blank", rel: "noopener noreferrer" %>
+          <% else %>
+            —
+          <% end %>
+        </dd>
+      </div>
+      <div class="profile-row profile-row--full">
         <dt>Referencia Pagomedios</dt>
         <dd><%= @payment.pagomedios_reference.presence || "—" %></dd>
       </div>
@@ -112,8 +128,12 @@
     <h2 class="block-title">Reporte Q10</h2>
     <dl class="profile-list">
       <div class="profile-row">
-        <dt>Reportado</dt>
-        <dd><%= payment_q10_label(@payment.q10_reported) %></dd>
+        <dt>Estado</dt>
+        <dd>
+          <span class="<%= payment_q10_status_class(@payment) %>">
+            <%= payment_q10_label(@payment) %>
+          </span>
+        </dd>
       </div>
       <div class="profile-row">
         <dt>Fecha reporte</dt>
@@ -121,8 +141,14 @@
       </div>
       <% if @payment.q10_error.present? %>
         <div class="profile-row profile-row--full">
-          <dt>Error Q10</dt>
+          <dt>Motivo / error</dt>
           <dd><%= @payment.q10_error %></dd>
+        </div>
+      <% end %>
+      <% if @payment.q10_response.present? %>
+        <div class="profile-row profile-row--full">
+          <dt>Respuesta almacenada</dt>
+          <dd><pre class="admin-payments-json"><%= JSON.pretty_generate(@payment.q10_response) %></pre></dd>
         </div>
       <% end %>
     </dl>

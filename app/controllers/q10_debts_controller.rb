@@ -8,13 +8,16 @@ class Q10DebtsController < ApplicationController
     @numero_identificacion = payload["numero_identificacion"] || payload["codigo_persona"]
     @student_email = payload.fetch("email")
     flash.now[:alert] = params[:payment_error] if params[:payment_error].present?
+    reconcile_student_pending_q10_reports!
     if params[:payment_success] == "1"
-      q10_pending = payment_success_pending_in_q10?
+      q10_pending = student_has_pending_q10_reports?
       flash.now[:notice] = if q10_pending
         "Tu pago fue aprobado. Estamos registrando el abono en Q10; los saldos pueden tardar unos segundos en actualizarse."
       else
         "Tu pago fue registrado correctamente. Los saldos se actualizaron."
       end
+    elsif student_has_pending_q10_reports?
+      flash.now[:notice] = "Tienes pagos aprobados en proceso de registro en Q10. Las cuotas afectadas permanecerán bloqueadas hasta completar el reporte."
     end
 
     result = ::Q10::ApiClient.new.fetch_creditos(numero_identificacion: @numero_identificacion)
@@ -23,6 +26,7 @@ class Q10DebtsController < ApplicationController
     @program_tabs = build_program_tabs(@credits_list)
     @active_consecutivo = active_consecutivo_credito(@program_tabs)
     @student = build_student_summary(@credits_list.first || {})
+    @blocked_cuotas_by_credit = PaymentCuotaLock.blocked_cuotas_by_credit(numero_identificacion: @numero_identificacion)
 
     if @program_tabs.empty?
       flash.now[:alert] = "No encontramos créditos activos en Q10 para esta persona."
@@ -48,10 +52,14 @@ class Q10DebtsController < ApplicationController
     response.headers["Expires"] = "0"
   end
 
-  def payment_success_pending_in_q10?
-    return true if params[:q10_pending] == "1" && !::Q10::ReportOrchestrator.retry_report!(params[:payment_ref])
+  def reconcile_student_pending_q10_reports!
+    return unless ::Q10::ApiClient.new.enabled?
 
-    false
+    ::Q10::ReportOrchestrator.reconcile_for_student!(numero_identificacion: @numero_identificacion)
+  end
+
+  def student_has_pending_q10_reports?
+    Payment.q10_pending_report.exists?(numero_identificacion: @numero_identificacion.to_s.strip)
   end
 
   def extract_credits(payload)

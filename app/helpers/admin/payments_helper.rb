@@ -20,8 +20,18 @@ module Admin
       Array(cuotas).presence&.join(", ") || "—"
     end
 
-    def payment_q10_label(reported)
-      reported ? "Sí" : "No"
+    def payment_q10_label(payment)
+      return "Reportado" if payment.q10_reported
+      return "—" unless payment.successful?
+
+      payment.q10_error.present? ? "No reportado" : "Pendiente de reporte"
+    end
+
+    def payment_q10_status_class(payment)
+      return "status-pill status-pill--authorized" if payment.q10_reported
+      return "status-pill status-pill--failed" if payment.successful? && payment.q10_error.present?
+
+      "status-pill status-pill--pending"
     end
   end
 end

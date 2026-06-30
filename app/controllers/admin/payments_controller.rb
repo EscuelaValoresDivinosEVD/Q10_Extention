@@ -8,6 +8,8 @@ module Admin
     def index
       @payments = Payment.order(created_at: :desc)
       @status_counts = Payment.group(:status).count
+      @q10_pending_report_count = Payment.q10_pending_report.count
+      @q10_pending_payments = Payment.q10_pending_report.order(created_at: :desc).limit(10)
     end
 
     def show

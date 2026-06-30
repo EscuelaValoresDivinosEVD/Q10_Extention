@@ -19,12 +19,36 @@ class PaymentRecorderTest < ActiveSupport::TestCase
     }
   end
 
-  test "record_pending! crea intento pendiente" do
+  test "record_pending! crea intento pendiente en BD desde el inicio" do
     payment = PaymentRecorder.record_pending!(reference: "CLEV-PENDING", attrs: @attrs)
 
     assert_equal "pending", payment.status
     assert_equal 29.0, payment.amount.to_f
     assert_equal [ "1" ], payment.cuotas
+    assert_equal "https://pay.example.com/1", payment.payment_url
+    assert_equal "token-abc", payment.pagomedios_token
+    assert_not_nil payment.created_at
+  end
+
+  test "fetch devuelve el pago persistido por referencia" do
+    PaymentRecorder.record_pending!(reference: "CLEV-FETCH", attrs: @attrs)
+
+    payment = PaymentRecorder.fetch("CLEV-FETCH")
+    assert_not_nil payment
+    assert_equal "CLEV-FETCH", payment.reference
+  end
+
+  test "update_status! actualiza el pago en BD tras webhook" do
+    PaymentRecorder.record_pending!(reference: "CLEV-STATUS", attrs: @attrs)
+
+    payment = PaymentRecorder.update_status!(
+      reference: "CLEV-STATUS",
+      status: "authorized",
+      webhook_payload: { status: "1", message: "Transaccion aprobada" }
+    )
+
+    assert_equal "authorized", payment.status
+    assert_equal "Transaccion aprobada", payment.pagomedios_message
   end
 
   test "record_failed! guarda error de intento fallido" do
@@ -74,5 +98,41 @@ class PaymentRecorderTest < ActiveSupport::TestCase
     payment = Payment.find_by!(reference: "CLEV-Q10")
     assert payment.q10_reported
     assert_not_nil payment.q10_reported_at
+    assert_equal({ "reported" => true, "data" => { "code" => "200" } }, payment.q10_response)
+    assert_nil payment.q10_error
+  end
+
+  test "apply_q10_report! guarda error de API Q10" do
+    PaymentRecorder.record_pending!(reference: "CLEV-Q10-ERR", attrs: @attrs)
+
+    PaymentRecorder.apply_q10_report!(
+      reference: "CLEV-Q10-ERR",
+      result: { reported: false, error: "Q10 timeout" }
+    )
+
+    payment = Payment.find_by!(reference: "CLEV-Q10-ERR")
+    assert_not payment.q10_reported
+    assert_equal "Q10 timeout", payment.q10_error
+    assert_equal({ "reported" => false, "error" => "Q10 timeout" }, payment.q10_response)
+  end
+
+  test "apply_q10_report! guarda reporte omitido para conciliación" do
+    PaymentRecorder.record_pending!(reference: "CLEV-Q10-SKIP", attrs: @attrs)
+    PaymentRecorder.apply_webhook!(
+      reference: "CLEV-Q10-SKIP",
+      status: "authorized",
+      webhook_payload: { status: "1", message: "Transaccion aprobada" }
+    )
+
+    PaymentRecorder.apply_q10_report!(
+      reference: "CLEV-Q10-SKIP",
+      result: { skipped: true, reason: "missing_codigo_cajero" }
+    )
+
+    payment = Payment.find_by!(reference: "CLEV-Q10-SKIP")
+    assert_not payment.q10_reported
+    assert_match(/código de cajero/i, payment.q10_error)
+    assert_equal({ "skipped" => true, "reason" => "missing_codigo_cajero" }, payment.q10_response)
+    assert payment.needs_q10_report?
   end
 end
