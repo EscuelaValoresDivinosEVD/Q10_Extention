@@ -37,3 +37,6 @@
 /config/master.key
 
 /database.yml
+
+# Copia local antigua / vendor (no versionar)
+/q10_extension/

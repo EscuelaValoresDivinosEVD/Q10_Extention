@@ -56,11 +56,19 @@ class HomeController < ApplicationController
   end
 
   def access_confirmation_flash(continue_url)
-    {
+    flash_data = {
       show_email_modal: true,
-      confirmation_email: params[:email].to_s.strip,
-      continue_url: continue_url
+      confirmation_email: params[:email].to_s.strip
     }
+    # En producción (o con SMTP real) el enlace solo va por correo, no en el popup.
+    flash_data[:continue_url] = continue_url if show_continue_link_in_modal?
+    flash_data
+  end
+
+  def show_continue_link_in_modal?
+    # Solo en desarrollo/test sin SMTP real: el enlace ayuda a probar sin buzón.
+    # En producción (o con SparkPost) el enlace va únicamente en el correo.
+    !Rails.env.production? && !SparkpostSmtp.configured?
   end
 
   def access_form_params
@@ -127,9 +135,20 @@ class HomeController < ApplicationController
     return true unless q10_student_verification_enabled?
     return true if skip_q10_creditos_check?
 
-    result = ::Q10::ApiClient.new.fetch_creditos(numero_identificacion: numero_identificacion)
+    codigo_persona = codigo_persona_from_estudiante(@q10_estudiante)
+    @consecutivo_periodo = ::Q10::Periods.new.default_consecutivo
+    result = ::Q10::ApiClient.new.fetch_creditos(
+      numero_identificacion: numero_identificacion,
+      codigo_persona: codigo_persona,
+      consecutivo_periodo: @consecutivo_periodo
+    )
     @q10_creditos = result[:data]
-    Rails.logger.info("[Q10] Créditos consultados para identificación #{numero_identificacion}: #{Array(@q10_creditos).size} encontrados.")
+    Rails.logger.info(
+      "[Q10] Créditos consultados para identificación #{numero_identificacion}" \
+      "#{codigo_persona.present? ? " (Codigo_persona=#{codigo_persona})" : ""}" \
+      " periodo=#{@consecutivo_periodo}: " \
+      "#{Array(@q10_creditos).size} encontrados."
+    )
 
     if Array(@q10_creditos).any?
       @q10_access_error = nil
@@ -143,6 +162,12 @@ class HomeController < ApplicationController
     @q10_access_error = :api_error
     @q10_access_error_detail = e.message
     false
+  end
+
+  def codigo_persona_from_estudiante(estudiante)
+    return if estudiante.blank?
+
+    estudiante["Codigo_persona"].presence || estudiante["Codigo_estudiante"].presence
   end
 
   def q10_student_verification_enabled?
@@ -182,8 +207,10 @@ class HomeController < ApplicationController
     token = ::Q10::LinkToken.generate(
       {
         numero_identificacion: params[:document].to_s.strip,
-        email: params[:email].to_s.strip
-      }
+        email: params[:email].to_s.strip,
+        codigo_persona: codigo_persona_from_estudiante(@q10_estudiante),
+        consecutivo_periodo: @consecutivo_periodo.presence || ::Q10::Periods.new.default_consecutivo
+      }.compact
     )
     continue_url = q10_continue_url(token: token)
     StudentAccessMailer.continue_process(email: params[:email].to_s.strip, continue_url: continue_url).deliver_now

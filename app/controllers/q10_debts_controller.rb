@@ -6,7 +6,14 @@ class Q10DebtsController < ApplicationController
   def show
     payload = ::Q10::LinkToken.verify(params[:token])
     @numero_identificacion = payload["numero_identificacion"] || payload["codigo_persona"]
+    @codigo_persona = payload["codigo_persona"].presence || resolve_codigo_persona(@numero_identificacion)
     @student_email = payload.fetch("email")
+    @periods = ::Q10::Periods.new
+    @period_options = @periods.options_for_select
+    @consecutivo_periodo = @periods.resolve(
+      params[:consecutivo_periodo].presence || payload["consecutivo_periodo"]
+    )
+    @selected_period = @periods.find(@consecutivo_periodo)
     flash.now[:alert] = params[:payment_error] if params[:payment_error].present?
     reconcile_student_pending_q10_reports!
     if params[:payment_success] == "1"
@@ -20,17 +27,21 @@ class Q10DebtsController < ApplicationController
       flash.now[:notice] = "Tienes pagos aprobados en proceso de registro en Q10. Las cuotas afectadas permanecerán bloqueadas hasta completar el reporte."
     end
 
-    result = ::Q10::ApiClient.new.fetch_creditos(numero_identificacion: @numero_identificacion)
+    result = ::Q10::ApiClient.new.fetch_creditos(
+      numero_identificacion: @numero_identificacion,
+      codigo_persona: @codigo_persona,
+      consecutivo_periodo: @consecutivo_periodo
+    )
     @q10_payload = result[:data]
     @credits_list = extract_credits(@q10_payload)
+    @product_names_by_orden = load_product_names_by_orden
     @program_tabs = build_program_tabs(@credits_list)
     @active_consecutivo = active_consecutivo_credito(@program_tabs)
     @student = build_student_summary(@credits_list.first || {})
     @blocked_cuotas_by_credit = PaymentCuotaLock.blocked_cuotas_by_credit(numero_identificacion: @numero_identificacion)
 
     if @program_tabs.empty?
-      flash.now[:alert] = "No encontramos créditos activos en Q10 para esta persona."
-      return render :show
+      flash.now[:alert] = "No encontramos créditos activos en Q10 para el periodo seleccionado."
     end
   rescue ::Q10::LinkToken::Error => e
     redirect_to root_path, alert: e.message
@@ -39,6 +50,11 @@ class Q10DebtsController < ApplicationController
     @q10_payload = {}
     @credits_list = []
     @program_tabs = []
+    @product_names_by_orden = {}
+    @periods ||= ::Q10::Periods.new
+    @period_options ||= @periods.options_for_select
+    @consecutivo_periodo ||= @periods.default_consecutivo
+    @selected_period ||= @periods.find(@consecutivo_periodo)
     @active_consecutivo = nil
     @student = build_student_summary({})
     render :show, status: :unprocessable_entity
@@ -50,6 +66,22 @@ class Q10DebtsController < ApplicationController
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
+  end
+
+  def load_product_names_by_orden
+    ::Q10::CourseNameResolver.new.product_names_by_orden(codigo_persona: @codigo_persona)
+  end
+
+  def resolve_codigo_persona(numero_identificacion)
+    return if numero_identificacion.blank?
+
+    estudiante = ::Q10::ApiClient.new.fetch_estudiante(numero_identificacion: numero_identificacion)[:data]
+    return unless estudiante.is_a?(Hash)
+
+    estudiante["Codigo_persona"].presence || estudiante["Codigo_estudiante"].presence
+  rescue ::Q10::ApiClient::Error => e
+    Rails.logger.warn("[Q10] No se pudo resolver Codigo_persona para #{numero_identificacion}: #{e.message}")
+    nil
   end
 
   def reconcile_student_pending_q10_reports!
@@ -74,13 +106,18 @@ class Q10DebtsController < ApplicationController
   end
 
   def build_program_tabs(credits)
-    labels = tab_labels_for(credits)
+    resolver = ::Q10::CourseNameResolver.new
+    product_by_orden = @product_names_by_orden || {}
+    labels = tab_labels_for(credits, resolver: resolver, product_by_orden: product_by_orden)
 
     credits.map.with_index do |credit, index|
+      course_name = resolver.course_name_for_credit(credit, product_by_orden)
+      student = build_student_summary(credit).merge(nombre_curso: course_name)
+
       {
         consecutivo_credito: credit["Consecutivo_credito"],
         label: labels[index],
-        student: build_student_summary(credit),
+        student: student,
         debt_summary: build_debt_summary(credit),
         cuotas: CuotaSelection.sorted(Array(credit["Cuotas"])),
         ordenes_pago: Array(credit["Ordenes_pago"]),
@@ -89,12 +126,16 @@ class Q10DebtsController < ApplicationController
     end
   end
 
-  def tab_labels_for(credits)
-    names = credits.map { |credit| credit["Nombre_programa"].presence || "Programa académico" }
+  def tab_labels_for(credits, resolver:, product_by_orden:)
+    names = credits.map do |credit|
+      resolver.course_name_for_credit(credit, product_by_orden).presence ||
+        credit["Nombre_programa"].presence ||
+        "Programa académico"
+    end
     return names if names.uniq.size == names.size
 
-    credits.map do |credit|
-      base = credit["Nombre_programa"].presence || "Programa académico"
+    credits.map.with_index do |credit, index|
+      base = names[index]
       period = credit["Nombre_periodo"].presence
       suffix = period || "Crédito #{credit['Consecutivo_credito']}"
       "#{base} (#{suffix})"

@@ -47,20 +47,69 @@ module Q10
       raise Error, "Q10 devolvió una respuesta no válida."
     end
 
-    def fetch_creditos(numero_identificacion:)
+    # Preferir Codigo_persona: en Q10 /creditos suele devolver resultados con ese
+    # filtro y vacío (o incompleto) solo con Numero_identificacion.
+    def fetch_creditos(numero_identificacion: nil, codigo_persona: nil, consecutivo_periodo: nil)
       raise Error, "La integración Q10 está deshabilitada." unless enabled?
-      raise Error, "Numero_identificacion es obligatorio." if numero_identificacion.blank?
+      if codigo_persona.blank? && numero_identificacion.blank?
+        raise Error, "Codigo_persona o Numero_identificacion es obligatorio."
+      end
 
+      periodo = consecutivo_periodo.presence || self.consecutivo_periodo
       uri = URI("#{base_url}/creditos")
+      query = { Consecutivo_periodo: periodo }
+      if codigo_persona.present?
+        query[:Codigo_persona] = codigo_persona
+      else
+        query[:Numero_identificacion] = numero_identificacion
+      end
+      uri.query = URI.encode_www_form(query)
+
+      handle_response(perform_with_fallbacks(uri, method: "GET") { |attempt_uri, headers| perform_get(attempt_uri, headers) })
+      filtered = filter_creditos(
+        parsed_body,
+        numero_identificacion: numero_identificacion,
+        codigo_persona: codigo_persona
+      )
+      # Si Q10 ya filtró por Codigo_persona y los ítems no traen ese campo, conservar la respuesta.
+      if filtered.empty? && codigo_persona.present? && parsed_body.is_a?(Array) && parsed_body.any?
+        filtered = parsed_body.select { |item| item.is_a?(Hash) }
+      end
+
+      { success: true, data: filtered, status: @last_response.code.to_i }
+    rescue JSON::ParserError
+      raise Error, "Q10 devolvió una respuesta no válida."
+    end
+
+    def fetch_periodos(limit: 30, offset: 1)
+      raise Error, "La integración Q10 está deshabilitada." unless enabled?
+
+      uri = URI("#{base_url}/periodos")
+      uri.query = URI.encode_www_form(Limit: limit, Offset: offset)
+
+      handle_response(perform_with_fallbacks(uri, method: "GET") { |attempt_uri, headers| perform_get(attempt_uri, headers) })
+      data = parsed_body.is_a?(Array) ? parsed_body.select { |item| item.is_a?(Hash) } : []
+
+      { success: true, data: data, status: @last_response.code.to_i }
+    rescue JSON::ParserError
+      raise Error, "Q10 devolvió una respuesta no válida."
+    end
+
+    # Estado=2: órdenes en paz y salvo / asociadas a matrícula (según API Q10).
+    def fetch_ordenes_pago(codigo_persona:, estado: 2)
+      raise Error, "La integración Q10 está deshabilitada." unless enabled?
+      raise Error, "Codigo_persona es obligatorio." if codigo_persona.blank?
+
+      uri = URI("#{base_url}/ordenespago")
       uri.query = URI.encode_www_form(
-        Consecutivo_periodo: consecutivo_periodo,
-        Numero_identificacion: numero_identificacion
+        Codigo_persona: codigo_persona,
+        Estado: estado
       )
 
       handle_response(perform_with_fallbacks(uri, method: "GET") { |attempt_uri, headers| perform_get(attempt_uri, headers) })
-      filtered = filter_by_numero_identificacion(parsed_body, numero_identificacion)
+      data = parsed_body.is_a?(Array) ? parsed_body.select { |item| item.is_a?(Hash) } : []
 
-      { success: true, data: filtered, status: @last_response.code.to_i }
+      { success: true, data: data, status: @last_response.code.to_i }
     rescue JSON::ParserError
       raise Error, "Q10 devolvió una respuesta no válida."
     end
@@ -206,14 +255,27 @@ module Q10
       JSON.parse(body)
     end
 
-    def filter_by_numero_identificacion(payload, numero_identificacion)
-      expected = normalize_identificacion(numero_identificacion)
-      return [] if expected.blank? || !payload.is_a?(Array)
+    def filter_creditos(payload, numero_identificacion: nil, codigo_persona: nil)
+      return [] unless payload.is_a?(Array)
+
+      expected_persona = codigo_persona.to_s.strip
+      expected_id = normalize_identificacion(numero_identificacion)
 
       payload.select do |credit|
-        credit.is_a?(Hash) &&
-          normalize_identificacion(credit["Numero_identificacion"]) == expected
+        next false unless credit.is_a?(Hash)
+
+        if expected_persona.present?
+          credit_persona = credit["Codigo_persona"].presence || credit["Codigo_estudiante"].presence
+          next credit_persona.to_s.strip == expected_persona
+        end
+
+        expected_id.present? &&
+          normalize_identificacion(credit["Numero_identificacion"]) == expected_id
       end
+    end
+
+    def filter_by_numero_identificacion(payload, numero_identificacion)
+      filter_creditos(payload, numero_identificacion: numero_identificacion)
     end
 
     def normalize_identificacion(value)
