@@ -43,7 +43,10 @@ class PaymentsController < ApplicationController
       reference: reference,
       description: description,
       notify_url: pagomedios_notify_url,
-      return_url: payment_return_url(reference: reference)
+      return_url: payment_return_url(
+        reference: reference,
+        consecutivo_periodo: params[:consecutivo_periodo].presence
+      )
     )
 
     unless result[:success]
@@ -141,6 +144,7 @@ class PaymentsController < ApplicationController
 
     if payment&.return_token.present?
       url_params = { token: payment.return_token }
+      url_params[:consecutivo_periodo] = params[:consecutivo_periodo] if params[:consecutivo_periodo].present?
 
       case payment.status
       when "authorized"
@@ -255,8 +259,9 @@ class PaymentsController < ApplicationController
 
   def render_payment_error(message)
     if params[:return_token].present?
-      redirect_to q10_continue_path(token: params[:return_token], payment_error: message),
-                  allow_other_host: false
+      redirect_params = { token: params[:return_token], payment_error: message }
+      redirect_params[:consecutivo_periodo] = params[:consecutivo_periodo] if params[:consecutivo_periodo].present?
+      redirect_to q10_continue_path(redirect_params), allow_other_host: false
     else
       flash.now[:alert] = message
       render :new, status: :unprocessable_entity

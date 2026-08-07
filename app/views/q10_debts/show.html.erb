@@ -10,9 +10,9 @@
 <% nombre_display = @student[:nombre_completo].presence || "Estudiante CLEV" %>
 <% doc_display = @student[:numero_identificacion].presence || @numero_identificacion %>
 <% codigo_display = @student[:codigo_estudiante].presence %>
-<% estado_display = if @program_tabs.size > 1
+<% estado_display = if Array(@program_tabs).size > 1
   "#{@program_tabs.size} programas"
-elsif @program_tabs.one?
+elsif Array(@program_tabs).one?
   @program_tabs.first[:student][:estado_credito].presence || "Activo"
 else
   "Sin crédito"
@@ -39,6 +39,26 @@ end %>
     </div>
   </header>
 
+  <% if @period_options.present? %>
+    <section class="card block block-period">
+      <form method="get" action="<%= q10_continue_path %>" class="period-filter" data-turbo="false">
+        <input type="hidden" name="token" value="<%= params[:token] %>" />
+        <label class="period-filter__label" for="consecutivo_periodo">Periodo académico</label>
+        <select
+          id="consecutivo_periodo"
+          name="consecutivo_periodo"
+          class="period-filter__select"
+          onchange="this.form.submit()"
+        >
+          <% @period_options.each do |name, value| %>
+            <option value="<%= value %>"<%= " selected" if value.to_s == @consecutivo_periodo.to_s %>><%= name %></option>
+          <% end %>
+        </select>
+        <p class="period-filter__hint">Puedes consultar el año en curso o el anterior.</p>
+      </form>
+    </section>
+  <% end %>
+
   <% if flash[:alert].present? %>
     <div class="panel-flash" role="alert"><%= flash[:alert] %></div>
   <% end %>
@@ -51,7 +71,7 @@ end %>
       <% if @program_tabs.size > 1 %>
         <div class="block-head block-head--programs">
           <h2 class="block-title">Mis programas</h2>
-          <span class="block-tag"><%= @program_tabs.size %> matrículas</span>
+          <span class="block-tag"><%= @program_tabs.size %> matrículas<%= " · #{@selected_period[:name]}" if @selected_period %></span>
         </div>
 
         <div class="panel-tabs" role="tablist" aria-label="Programas matriculados">
@@ -100,7 +120,7 @@ end %>
           <header class="program-compact block--nested">
             <div class="program-compact__head">
               <% if @program_tabs.size == 1 %>
-                <h2 class="block-title program-compact__name"><%= student[:nombre_programa].presence || "Programa académico" %></h2>
+                <h2 class="block-title program-compact__name"><%= student[:nombre_curso].presence || student[:nombre_programa].presence || "Programa académico" %></h2>
               <% end %>
               <span class="course-pill"><%= student[:estado_credito].presence || "En curso" %></span>
             </div>
@@ -179,6 +199,7 @@ end %>
                   <input type="hidden" name="codigo_cajero" value="<%= credit['Codigo_cajero'] %>" />
                   <input type="hidden" name="codigo_estudiante" value="<%= student[:codigo_estudiante] %>" />
                   <input type="hidden" name="consecutivo_credito" value="<%= credit['Consecutivo_credito'] %>" />
+                  <input type="hidden" name="consecutivo_periodo" value="<%= @consecutivo_periodo %>" />
                   <input type="hidden" name="pending_cuotas_order" value="<%= cuotas_pendientes_orden.join(",") %>" />
                   <input type="hidden" name="cuotas" class="clev-payment-cuotas" value="" />
                   <input type="hidden" name="amount" class="clev-payment-amount" value="" />
@@ -290,6 +311,14 @@ end %>
           <% end %>
         </div>
       <% end %>
+    </section>
+  <% else %>
+    <section class="card block">
+      <p class="panel-empty">
+        No hay créditos en el periodo
+        <strong><%= @selected_period&.dig(:name) || @consecutivo_periodo %></strong>.
+        Prueba otro periodo académico.
+      </p>
     </section>
   <% end %>
 

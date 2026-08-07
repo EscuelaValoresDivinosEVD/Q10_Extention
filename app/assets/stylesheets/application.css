@@ -742,6 +742,45 @@ body {
   flex-wrap: wrap;
 }
 
+.block-period {
+  padding-top: 18px;
+  padding-bottom: 18px;
+}
+
+.period-filter {
+  display: grid;
+  gap: 8px;
+  max-width: 320px;
+}
+
+.period-filter__label {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--panel-teal);
+}
+
+.period-filter__select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid rgba(79, 105, 110, 0.22);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel-white) 92%, var(--panel-sand));
+  color: var(--panel-teal);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.period-filter__hint {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
 .panel-kicker {
   margin: 0 0 6px;
   font-size: 12px;

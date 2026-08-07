@@ -21,7 +21,7 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to root_path
   end
 
-  test "POST /acceder con datos válidos redirige al inicio y muestra modal" do
+  test "POST /acceder con datos válidos redirige al inicio y muestra modal con enlace" do
     post acceder_path, params: {
       document_type: "EC01",
       document: "1234567890",
@@ -32,6 +32,30 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     assert_select "dialog.clev-modal#clev-email-modal"
     assert_match(/alumno@correo\.com/, response.body)
     assert_match(/correo electrónico/i, response.body)
+    assert_select ".clev-modal__link"
+  end
+
+  test "POST /acceder no muestra el enlace de continuación cuando SMTP está configurado" do
+    previous = ENV["SPARKPOST_SMTP_API_KEY"]
+    ENV["SPARKPOST_SMTP_API_KEY"] = "test-smtp-key"
+    begin
+      post acceder_path, params: {
+        document_type: "EC01",
+        document: "1234567890",
+        email: "alumno@correo.com"
+      }
+      assert_redirected_to root_path
+      follow_redirect!
+      assert_select "dialog.clev-modal#clev-email-modal"
+      assert_select ".clev-modal__link", count: 0
+      assert_no_match(/También puedes continuar desde este enlace/, response.body)
+    ensure
+      if previous
+        ENV["SPARKPOST_SMTP_API_KEY"] = previous
+      else
+        ENV.delete("SPARKPOST_SMTP_API_KEY")
+      end
+    end
   end
 
   test "POST /acceder con datos inválidos redirige al formulario con error" do
@@ -80,6 +104,9 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     client.define_singleton_method(:enabled?) { true }
     client.define_singleton_method(:fetch_estudiante) { |**| { data: estudiante } }
     client.define_singleton_method(:fetch_creditos) { |**| { data: [ estudiante.merge("Consecutivo_credito" => 1) ] } }
+    client.define_singleton_method(:fetch_periodos) do |**|
+      { data: [ { "Consecutivo" => 12, "Nombre" => Time.zone.now.year.to_s } ] }
+    end
     client.define_singleton_method(:fetch_tipos_identificacion) do |**|
       {
         data: [
