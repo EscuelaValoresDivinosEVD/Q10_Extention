@@ -113,13 +113,23 @@
       <div class="clev-modal__panel">
         <div class="clev-modal__accent"></div>
         <div class="clev-modal__body">
-          <h3 id="clev-modal-title" class="clev-modal__title">Revisa tu correo</h3>
-          <p id="clev-modal-desc" class="clev-modal__text">
-            Enviamos un correo electrónico a <strong class="clev-modal__email"><%= @confirmation_email %></strong>
-            con tu enlace de continuación. Si no lo ves, revisa la carpeta de spam o correo no deseado.
-          </p>
+          <% if @access_link_on_screen %>
+            <h3 id="clev-modal-title" class="clev-modal__title">Continúa tu acceso</h3>
+            <p id="clev-modal-desc" class="clev-modal__text">
+              Validamos tus datos para <strong class="clev-modal__email"><%= @confirmation_email %></strong>.
+              Usa el siguiente enlace para ver tu deuda y continuar con el pago:
+            </p>
+          <% else %>
+            <h3 id="clev-modal-title" class="clev-modal__title">Revisa tu correo</h3>
+            <p id="clev-modal-desc" class="clev-modal__text">
+              Enviamos un correo electrónico a <strong class="clev-modal__email"><%= @confirmation_email %></strong>
+              con tu enlace de continuación. Si no lo ves, revisa la carpeta de spam o correo no deseado.
+            </p>
+          <% end %>
           <% if @continue_url.present? %>
-            <p class="clev-modal__text clev-modal__text--link-label">También puedes continuar desde este enlace:</p>
+            <% unless @access_link_on_screen %>
+              <p class="clev-modal__text clev-modal__text--link-label">También puedes continuar desde este enlace:</p>
+            <% end %>
             <p class="clev-modal__link-wrap">
               <%= link_to @continue_url, @continue_url, class: "clev-modal__link", target: "_blank", rel: "noopener noreferrer" %>
             </p>

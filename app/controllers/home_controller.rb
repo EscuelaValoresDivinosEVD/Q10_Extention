@@ -53,12 +53,15 @@ class HomeController < ApplicationController
     @show_email_modal = flash[:show_email_modal].present?
     @confirmation_email = flash[:confirmation_email]
     @continue_url = flash[:continue_url]
+    @access_link_on_screen = flash[:access_link_on_screen].present?
   end
 
   def access_confirmation_flash(continue_url)
     flash_data = {
       show_email_modal: true,
-      confirmation_email: params[:email].to_s.strip
+      confirmation_email: params[:email].to_s.strip,
+      continue_url: continue_url,
+      access_link_on_screen: access_link_on_screen?
     }
     # En producción (o con SMTP real) el enlace solo va por correo, no en el popup.
     flash_data[:continue_url] = continue_url if show_continue_link_in_modal?
@@ -69,6 +72,10 @@ class HomeController < ApplicationController
     # Solo en desarrollo/test sin SMTP real: el enlace ayuda a probar sin buzón.
     # En producción (o con SparkPost) el enlace va únicamente en el correo.
     !Rails.env.production? && !SparkpostSmtp.configured?
+  end
+
+  def access_link_on_screen?
+    ENV["ACCESS_SHOW_LINK_ONLY"] == "true"
   end
 
   def access_form_params
@@ -213,6 +220,12 @@ class HomeController < ApplicationController
       }.compact
     )
     continue_url = q10_continue_url(token: token)
+
+    if access_link_on_screen?
+      Rails.logger.info("[Q10] ACCESS_SHOW_LINK_ONLY activo: se omite el correo y se muestra el enlace en pantalla.")
+      return continue_url
+    end
+
     StudentAccessMailer.continue_process(email: params[:email].to_s.strip, continue_url: continue_url).deliver_now
     continue_url
   rescue StandardError => e
