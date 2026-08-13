@@ -58,6 +58,27 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "POST /acceder con ACCESS_SHOW_LINK_ONLY omite el correo y muestra el enlace" do
+    previous = ENV["ACCESS_SHOW_LINK_ONLY"]
+    ENV["ACCESS_SHOW_LINK_ONLY"] = "true"
+
+    assert_no_emails do
+      post acceder_path, params: {
+        document_type: "EC01",
+        document: "1234567890",
+        email: "alumno@correo.com"
+      }
+    end
+
+    assert_redirected_to root_path
+    follow_redirect!
+    assert_select "dialog.clev-modal#clev-email-modal"
+    assert_match(/Continúa tu acceso/, response.body)
+    assert_select "a.clev-modal__link[href*='continuar']"
+  ensure
+    ENV["ACCESS_SHOW_LINK_ONLY"] = previous
+  end
+
   test "POST /acceder con datos inválidos redirige al formulario con error" do
     post acceder_path, params: { document_type: "", document: "", email: "" }
     assert_response :redirect
