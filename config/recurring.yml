@@ -17,9 +17,42 @@ production:
     class: Q10::ReconcilePendingReportsJob
     queue: default
     schedule: at 3am every day
+  cancel_stale_pending_payments:
+    class: CancelStalePendingPaymentsJob
+    queue: default
+    schedule: at 4am every day
+  # Recordatorios de cuota: 3 veces al día. Idempotente (no reenvía el mismo aviso).
+  cuota_reminders_morning:
+    class: CuotaRemindersJob
+    queue: default
+    schedule: at 8am every day
+  cuota_reminders_afternoon:
+    class: CuotaRemindersJob
+    queue: default
+    schedule: at 1pm every day
+  cuota_reminders_evening:
+    class: CuotaRemindersJob
+    queue: default
+    schedule: at 6pm every day
 
 development:
   reconcile_q10_pending_reports:
     class: Q10::ReconcilePendingReportsJob
     queue: default
     schedule: at 3am every day
+  cancel_stale_pending_payments:
+    class: CancelStalePendingPaymentsJob
+    queue: default
+    schedule: at 4am every day
+  cuota_reminders_morning:
+    class: CuotaRemindersJob
+    queue: default
+    schedule: at 8am every day
+  cuota_reminders_afternoon:
+    class: CuotaRemindersJob
+    queue: default
+    schedule: at 1pm every day
+  cuota_reminders_evening:
+    class: CuotaRemindersJob
+    queue: default
+    schedule: at 6pm every day

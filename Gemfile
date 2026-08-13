@@ -58,3 +58,5 @@ group :test do
   gem "capybara"
   gem "selenium-webdriver"
 end
+
+gem "caxlsx", "~> 4.0"

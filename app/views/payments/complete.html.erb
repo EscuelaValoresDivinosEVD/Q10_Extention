@@ -32,11 +32,15 @@
           Estamos registrando el abono en Q10.
         <% end %>
       </p>
-    <% elsif @payment&.status&.in?(%w[rejected reversed]) %>
+    <% elsif @payment&.status&.in?(%w[rejected failed cancelled]) %>
       <div class="payment-complete-icon payment-complete-icon--error" aria-hidden="true">!</div>
       <h1 class="block-title payment-complete-title">Pago no completado</h1>
       <p class="block-text payment-complete-lead">
-        La transacción no fue aprobada. En unos segundos volverás a tu panel para intentarlo de nuevo.
+        <% if @payment.cancelled? %>
+          Este intento de pago fue cancelado por vencimiento. En unos segundos volverás a tu panel para intentarlo de nuevo.
+        <% else %>
+          La transacción no fue aprobada. En unos segundos volverás a tu panel para intentarlo de nuevo.
+        <% end %>
       </p>
     <% else %>
       <div class="payment-complete-icon payment-complete-icon--pending" aria-hidden="true">…</div>

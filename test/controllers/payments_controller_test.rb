@@ -73,6 +73,8 @@ class PaymentsControllerTest < ActionDispatch::IntegrationTest
         return_token: "token-test",
         numero_identificacion: "81181178",
         codigo_estudiante: "117845823986",
+        nombre: "Carlos Andrés",
+        apellido: "Bedoya Correa",
         consecutivo_credito: "655",
         pending_cuotas_order: "2,3",
         cuotas: "2",
@@ -81,6 +83,10 @@ class PaymentsControllerTest < ActionDispatch::IntegrationTest
     end
     assert_response :redirect
     assert_match %r{\Ahttps://pay\.example\.com/}, response.redirect_url
+
+    payment = Payment.order(:created_at).last
+    assert_equal "Carlos Andrés", payment.nombre
+    assert_equal "Bedoya Correa", payment.apellido
   end
 
   test "POST /pagar rechaza cuotas bloqueadas por reporte Q10 pendiente" do

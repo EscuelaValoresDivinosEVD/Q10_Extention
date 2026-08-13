@@ -22,7 +22,11 @@ Rails.application.routes.draw do
   match "payments/webhook(/:webhook_secret)", to: "payments#webhook", via: [ :get, :post ], as: :payments_webhook
 
   namespace :admin do
-    resources :payments, only: [ :index, :show ], path: "pagos"
+    resources :payments, only: [ :index, :show ], path: "pagos" do
+      collection do
+        get :export, path: "exportar"
+      end
+    end
   end
 
   # Defines the root path route ("/")

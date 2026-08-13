@@ -198,6 +198,8 @@ end %>
                   <input type="hidden" name="codigo_persona" value="<%= credit['Codigo_estudiante'] %>" />
                   <input type="hidden" name="codigo_cajero" value="<%= credit['Codigo_cajero'] %>" />
                   <input type="hidden" name="codigo_estudiante" value="<%= student[:codigo_estudiante] %>" />
+                  <input type="hidden" name="nombre" value="<%= student[:nombre] %>" />
+                  <input type="hidden" name="apellido" value="<%= student[:apellido] %>" />
                   <input type="hidden" name="consecutivo_credito" value="<%= credit['Consecutivo_credito'] %>" />
                   <input type="hidden" name="consecutivo_periodo" value="<%= @consecutivo_periodo %>" />
                   <input type="hidden" name="pending_cuotas_order" value="<%= cuotas_pendientes_orden.join(",") %>" />

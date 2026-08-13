@@ -42,6 +42,14 @@
         <dd><%= @payment.numero_identificacion.presence || "—" %></dd>
       </div>
       <div class="profile-row">
+        <dt>Nombre</dt>
+        <dd><%= @payment.nombre.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Apellido</dt>
+        <dd><%= @payment.apellido.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
         <dt>Código persona</dt>
         <dd><%= @payment.codigo_persona.presence || "—" %></dd>
       </div>
