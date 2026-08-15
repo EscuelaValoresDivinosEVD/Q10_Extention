@@ -60,7 +60,6 @@ class HomeController < ApplicationController
     flash_data = {
       show_email_modal: true,
       confirmation_email: params[:email].to_s.strip,
-      continue_url: continue_url,
       access_link_on_screen: access_link_on_screen?
     }
     # En producción (o con SMTP real) el enlace solo va por correo, no en el popup.
@@ -69,9 +68,9 @@ class HomeController < ApplicationController
   end
 
   def show_continue_link_in_modal?
-    # Solo en desarrollo/test sin SMTP real: el enlace ayuda a probar sin buzón.
-    # En producción (o con SparkPost) el enlace va únicamente en el correo.
-    !Rails.env.production? && !SparkpostSmtp.configured?
+    # ACCESS_SHOW_LINK_ONLY: pruebas sin buzón. Desarrollo/test sin SparkPost: igual.
+    # En producción con SMTP el enlace va únicamente en el correo.
+    access_link_on_screen? || (!Rails.env.production? && !SparkpostSmtp.configured?)
   end
 
   def access_link_on_screen?
