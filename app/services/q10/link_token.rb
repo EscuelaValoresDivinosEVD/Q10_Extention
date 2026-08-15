@@ -7,8 +7,8 @@ module Q10
 
     class Error < StandardError; end
 
-    def self.generate(payload)
-      verifier.generate(payload, purpose: PURPOSE, expires_in: EXPIRES_IN)
+    def self.generate(payload, expires_in: EXPIRES_IN)
+      verifier.generate(payload, purpose: PURPOSE, expires_in: expires_in)
     end
 
     def self.verify(token)

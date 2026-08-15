@@ -1,0 +1,18 @@
+Hola<%= @student_name.present? ? ", #{@student_name}" : "" %>,
+
+Te informamos que tu cuota #<%= @cuota[:numero] %><% if @cuota[:curso].present? %> del curso <%= @cuota[:curso] %><% end %> ya se encuentra vencida. Te invitamos a regularizar el pago lo antes posible.
+
+Detalle de la cuota vencida:
+- Número: <%= @cuota[:numero] %>
+- Fecha de pago: <%= @cuota[:fecha] %>
+- Valor pendiente: <%= @cuota[:pendiente] %>
+<% if @cuota[:curso].present? %>- Programa: <%= @cuota[:curso] %>
+<% end %><% if @cuota[:periodo].present? %>- Periodo: <%= @cuota[:periodo] %>
+<% end %>
+
+Ingresa al sistema para revisar tu deuda y completar el pago:
+<%= @continue_url %>
+
+Si tienes inconvenientes con el botón, comunícate directamente con el área administrativa del CLEV.
+
+Este es un aviso automático del sistema CLEV.

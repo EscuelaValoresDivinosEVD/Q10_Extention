@@ -5,9 +5,46 @@
     <div>
       <p class="panel-kicker">Administración</p>
       <h1 class="panel-title">Pagos registrados</h1>
-      <p class="panel-doc"><%= pluralize(@payments.size, "registro", "registros") %> en total</p>
+      <p class="panel-doc"><%= pluralize(@payments.size, "registro", "registros") %><%= date_filter_summary %></p>
     </div>
   </header>
+
+  <section class="card block admin-payments-filters" aria-label="Filtros de consulta">
+    <% if flash[:alert].present? %>
+      <div class="panel-flash" role="alert"><%= flash[:alert] %></div>
+    <% end %>
+
+    <%= form_with url: admin_payments_path, method: :get, local: true, class: "admin-payments-filters__form" do |f| %>
+      <div class="admin-payments-filters__fields">
+        <label class="admin-payments-filters__field">
+          <span class="admin-payments-filters__label">Fecha desde</span>
+          <%= f.date_field :fecha_desde,
+                value: params[:fecha_desde].presence || @fecha_desde,
+                class: "admin-payments-filters__input",
+                required: true,
+                max: @fecha_hasta,
+                oninput: "const hasta = this.form.fecha_hasta; if (hasta) { hasta.min = this.value; }" %>
+        </label>
+        <label class="admin-payments-filters__field">
+          <span class="admin-payments-filters__label">Fecha hasta</span>
+          <%= f.date_field :fecha_hasta,
+                value: params[:fecha_hasta].presence || @fecha_hasta,
+                class: "admin-payments-filters__input",
+                required: true,
+                min: @fecha_desde,
+                oninput: "const desde = this.form.fecha_desde; if (desde) { desde.max = this.value; }" %>
+        </label>
+      </div>
+      <div class="admin-payments-filters__actions">
+        <%= f.submit "Filtrar", class: "btn btn-primary" %>
+        <%= link_to "Limpiar", admin_payments_path, class: "btn btn-ghost" %>
+        <%= link_to "Exportar a Excel",
+              export_admin_payments_path(fecha_desde: params[:fecha_desde], fecha_hasta: params[:fecha_hasta]),
+              class: "btn btn-ghost",
+              data: { turbo: false } %>
+      </div>
+    <% end %>
+  </section>
 
   <% if @status_counts.any? %>
     <section class="card block admin-payments-summary" aria-label="Resumen por estado">
@@ -70,7 +107,7 @@
 
   <section class="card block">
     <% if @payments.empty? %>
-      <p class="block-text">Aún no hay pagos registrados en la base de datos.</p>
+      <p class="block-text">No hay pagos registrados<%= @fecha_desde || @fecha_hasta ? " para el rango seleccionado" : " en la base de datos" %>.</p>
     <% else %>
       <div class="admin-payments-table-wrap">
         <table class="admin-payments-table">

@@ -8,6 +8,8 @@ class Q10DebtsController < ApplicationController
     @numero_identificacion = payload["numero_identificacion"] || payload["codigo_persona"]
     @codigo_persona = payload["codigo_persona"].presence || resolve_codigo_persona(@numero_identificacion)
     @student_email = payload.fetch("email")
+    @nombre = payload["nombre"].presence
+    @apellido = payload["apellido"].presence
     @periods = ::Q10::Periods.new
     @period_options = @periods.options_for_select
     @consecutivo_periodo = @periods.resolve(
@@ -151,10 +153,15 @@ class Q10DebtsController < ApplicationController
 
   def build_student_summary(credit)
     credit ||= {}
+    person_name = ::Q10::PersonName.from_hash(credit)
+    nombre = person_name[:nombre].presence || @nombre
+    apellido = person_name[:apellido].presence || @apellido
 
     {
       codigo_estudiante: credit["Codigo_estudiante"],
-      nombre_completo: credit["Nombre_completo"],
+      nombre_completo: credit["Nombre_completo"].presence || [ nombre, apellido ].compact.join(" ").presence,
+      nombre: nombre,
+      apellido: apellido,
       numero_identificacion: credit["Numero_identificacion"],
       nombre_programa: credit["Nombre_programa"],
       nombre_periodo: credit["Nombre_periodo"],

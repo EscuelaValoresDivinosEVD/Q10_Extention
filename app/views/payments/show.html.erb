@@ -24,8 +24,10 @@
               Pago autorizado
             <% when "rejected" %>
               Pago rechazado
-            <% when "reversed" %>
-              Pago reversado
+            <% when "cancelled" %>
+              Pago cancelado
+            <% when "failed" %>
+              Pago fallido
             <% else %>
               Pendiente de confirmación
             <% end %>

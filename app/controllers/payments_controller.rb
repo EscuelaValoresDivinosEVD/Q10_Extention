@@ -152,7 +152,7 @@ class PaymentsController < ApplicationController
         url_params[:payment_ref] = reference if reference.present?
         url_params[:consecutivo_credito] = payment.consecutivo_credito if payment.consecutivo_credito.present?
         url_params[:q10_pending] = "1" unless payment.q10_reported?
-      when "rejected", "reversed"
+      when "rejected"
         url_params[:payment_error] = "El pago no fue aprobado. Intenta nuevamente."
       end
 
@@ -178,6 +178,8 @@ class PaymentsController < ApplicationController
       numero_identificacion: session[:numero_identificacion],
       codigo_persona: session[:codigo_persona],
       codigo_estudiante: session[:codigo_estudiante],
+      nombre: session[:nombre],
+      apellido: session[:apellido],
       codigo_cajero: session[:codigo_cajero],
       consecutivo_credito: session[:consecutivo_credito],
       cuotas: Array(session[:cuotas]),
@@ -250,6 +252,8 @@ class PaymentsController < ApplicationController
       numero_identificacion: params[:numero_identificacion],
       codigo_persona: params[:codigo_persona],
       codigo_estudiante: params[:codigo_estudiante],
+      nombre: params[:nombre].to_s.strip.presence,
+      apellido: params[:apellido].to_s.strip.presence,
       codigo_cajero: params[:codigo_cajero],
       consecutivo_credito: params[:consecutivo_credito],
       cuotas: selected_cuotas,
@@ -271,8 +275,7 @@ class PaymentsController < ApplicationController
   def map_pagomedios_status(raw_status)
     case raw_status.to_s
     when "1" then "authorized"
-    when "2" then "rejected"
-    when "3" then "reversed"
+    when "2", "3" then "rejected"
     else "pending"
     end
   end

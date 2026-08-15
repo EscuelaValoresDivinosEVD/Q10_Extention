@@ -211,12 +211,15 @@ class HomeController < ApplicationController
   end
 
   def send_continue_link
+    person_name = ::Q10::PersonName.from_hash(@q10_estudiante)
     token = ::Q10::LinkToken.generate(
       {
         numero_identificacion: params[:document].to_s.strip,
         email: params[:email].to_s.strip,
         codigo_persona: codigo_persona_from_estudiante(@q10_estudiante),
-        consecutivo_periodo: @consecutivo_periodo.presence || ::Q10::Periods.new.default_consecutivo
+        consecutivo_periodo: @consecutivo_periodo.presence || ::Q10::Periods.new.default_consecutivo,
+        nombre: person_name[:nombre],
+        apellido: person_name[:apellido]
       }.compact
     )
     continue_url = q10_continue_url(token: token)

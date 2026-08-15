@@ -1,0 +1,18 @@
+Hola<%= @student_name.present? ? ", #{@student_name}" : "" %>,
+
+Te recordamos que tu cuota #<%= @cuota[:numero] %><% if @cuota[:curso].present? %> del curso <%= @cuota[:curso] %><% end %> vence en <%= @days_before %> <%= @days_before == 1 ? "día" : "días" %>.
+
+Detalle de la cuota:
+- Número: <%= @cuota[:numero] %>
+- Fecha de pago: <%= @cuota[:fecha] %>
+- Valor pendiente: <%= @cuota[:pendiente] %>
+<% if @cuota[:curso].present? %>- Programa: <%= @cuota[:curso] %>
+<% end %><% if @cuota[:periodo].present? %>- Periodo: <%= @cuota[:periodo] %>
+<% end %>
+
+Ingresa al sistema para revisar tu deuda y realizar el pago a tiempo:
+<%= @continue_url %>
+
+Si tienes inconvenientes con el botón, comunícate directamente con el área administrativa del CLEV.
+
+Este es un recordatorio automático del sistema CLEV.

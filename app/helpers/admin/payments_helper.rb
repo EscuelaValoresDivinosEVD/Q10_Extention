@@ -7,8 +7,8 @@ module Admin
         "authorized" => "Autorizado",
         "pending" => "Pendiente",
         "rejected" => "Rechazado",
-        "reversed" => "Reversado",
-        "failed" => "Fallido"
+        "failed" => "Fallido",
+        "cancelled" => "Cancelado"
       }.fetch(status.to_s, status.to_s.humanize)
     end
 
@@ -32,6 +32,15 @@ module Admin
       return "status-pill status-pill--failed" if payment.successful? && payment.q10_error.present?
 
       "status-pill status-pill--pending"
+    end
+
+    def date_filter_summary
+      return " en total" if @fecha_desde.blank? && @fecha_hasta.blank?
+
+      parts = []
+      parts << "desde #{l(@fecha_desde)}" if @fecha_desde.present?
+      parts << "hasta #{l(@fecha_hasta)}" if @fecha_hasta.present?
+      " · #{parts.join(' ')}"
     end
   end
 end

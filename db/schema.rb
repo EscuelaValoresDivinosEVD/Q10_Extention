@@ -10,9 +10,22 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_06_27_134533) do
+ActiveRecord::Schema[8.0].define(version: 2026_08_12_231752) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "cuota_reminder_deliveries", force: :cascade do |t|
+    t.string "numero_identificacion", null: false
+    t.integer "consecutivo_credito"
+    t.string "numero_cuota", null: false
+    t.date "fecha_cuota", null: false
+    t.integer "days_before", null: false
+    t.string "email", null: false
+    t.datetime "sent_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["numero_identificacion", "consecutivo_credito", "numero_cuota", "fecha_cuota", "days_before"], name: "index_cuota_reminder_deliveries_unique", unique: true
+  end
 
   create_table "payments", force: :cascade do |t|
     t.string "reference", null: false
@@ -44,6 +57,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_27_134533) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "codigo_estudiante"
+    t.string "nombre"
+    t.string "apellido"
     t.index ["consecutivo_credito"], name: "index_payments_on_consecutivo_credito"
     t.index ["created_at"], name: "index_payments_on_created_at"
     t.index ["numero_identificacion"], name: "index_payments_on_numero_identificacion"
