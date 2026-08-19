@@ -62,6 +62,20 @@ En desarrollo, los correos se abren en el navegador en `/letter_opener` (no hace
 | `APP_HOST` | Host público en producción (URLs de correo) |
 | `SPARKPOST_SMTP_API_KEY` | SMTP en producción |
 
+### Funnel de inscripción a cursos (nuevo)
+
+⚠️ Estas variables **todavía no están en `.env.example`**: agrégalas ahí y en tu `.env` local.
+
+| Variable | Descripción |
+|---|---|
+| `INSCRIPCION_WEBHOOK_SECRET` | Segmento secreto del `notify_url` propio del funnel de inscripción (`/inscripcion/webhook/<secreto>`). **Obligatorio**: sin él, ningún webhook de inscripción se procesa. Debe ser distinto de `PAGOMEDIOS_WEBHOOK_SECRET` |
+| `GHL_TOKEN` | Private Integration Token del Sub-Account de GoHighLevel (scope `contacts.write`) |
+| `GHL_LOCATION_ID` | `locationId` obligatorio del upsert de contacto en GoHighLevel |
+| `GHL_API_BASE_URL` | URL base del CRM (por defecto `https://services.leadconnectorhq.com`) |
+| `GHL_API_VERSION` | Header `Version` de la API de GoHighLevel (por defecto `v3`) |
+| `GHL_ENABLED` | Activa/desactiva la integración con el CRM (`true` / `false`) |
+| `GHL_CONTACT_SOURCE` | Valor del campo `source` del contacto (por defecto `CLEV inscripción`) |
+
 Consulta `.env.example` para la lista completa.
 
 ## Rutas principales
@@ -72,7 +86,12 @@ Consulta `.env.example` para la lista completa.
 | `/continuar?token=...` | Panel de deudas Q10 del estudiante |
 | `/pagar` | Formulario de pago Pagomedios |
 | `/pagos/resultado` | Resultado del pago |
-| `/payments/webhook` | Callback de Pagomedios |
+| `/payments/webhook` | Callback de Pagomedios (flujo de deudas) |
+| `/inscripcion/cursos/:codigo` | Checkout público de inscripción a un curso (sin login) |
+| `/inscripcion/resultado` | Resultado del pago de inscripción |
+| `/inscripcion/webhook/:secreto` | Callback de Pagomedios del funnel de inscripción |
+| `/admin/pagos` | Panel de pagos de deudas Q10 (HTTP Basic) |
+| `/admin/ordenes` | Panel de órdenes de inscripción con filtros y export CSV (HTTP Basic) |
 | `/up` | Health check |
 
 ## Despliegue en Heroku

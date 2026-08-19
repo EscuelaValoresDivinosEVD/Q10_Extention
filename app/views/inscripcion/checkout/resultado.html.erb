@@ -1,0 +1,80 @@
+<% content_for :title, "Resultado de tu inscripción" %>
+
+<div class="inscripcion-page">
+  <div class="inscripcion-card inscripcion-empty">
+    <% if @order.blank? %>
+      <div class="inscripcion-result-icon inscripcion-result-icon--pending" aria-hidden="true">?</div>
+      <h1 class="inscripcion-title">No encontramos tu inscripción</h1>
+      <p class="hint">
+        Si ya pagaste, revisa tu correo o escríbenos a <%= mail_to "info@clev.org" %> con tu comprobante.
+      </p>
+
+    <% elsif @order.pagada? %>
+      <div class="inscripcion-result-icon inscripcion-result-icon--success" aria-hidden="true">✓</div>
+      <h1 class="inscripcion-title">¡Pago completado!</h1>
+      <p class="hint">
+        Tu inscripción a <strong><%= @order.course_name %></strong> quedó registrada.
+        Recibirás tu factura electrónica en <%= @order.email %>.
+      </p>
+
+    <% elsif @order.status == "rejected" %>
+      <div class="inscripcion-result-icon inscripcion-result-icon--error" aria-hidden="true">!</div>
+      <h1 class="inscripcion-title">Tu pago fue rechazado por la pasarela</h1>
+      <p class="hint"><%= @order.pagomedios_message.presence || "Puedes intentar con otra tarjeta." %></p>
+      <div class="actions">
+        <%= link_to "Intentar de nuevo",
+                    inscripcion_curso_path(codigo: @order.q10_course_code, opcion: @order.option_code),
+                    class: "btn btn-primary", data: { turbo: false } %>
+      </div>
+
+    <% elsif @order.status == "failed" %>
+      <div class="inscripcion-result-icon inscripcion-result-icon--error" aria-hidden="true">!</div>
+      <h1 class="inscripcion-title">No pudimos completar tu pago</h1>
+      <p class="hint">Intenta de nuevo en un momento.</p>
+      <div class="actions">
+        <%= link_to "Intentar de nuevo",
+                    inscripcion_curso_path(codigo: @order.q10_course_code, opcion: @order.option_code),
+                    class: "btn btn-primary", data: { turbo: false } %>
+      </div>
+
+    <% else %>
+      <div class="inscripcion-result-icon inscripcion-result-icon--pending" aria-hidden="true">…</div>
+      <h1 class="inscripcion-title">Estamos confirmando tu pago</h1>
+      <p class="hint">
+        En cuanto la pasarela confirme la transacción, tu inscripción quedará registrada.
+        Guarda tu referencia por si necesitas escribirnos.
+      </p>
+    <% end %>
+
+    <% if @order.present? %>
+      <div class="inscripcion-summary">
+        <dl class="profile-list">
+          <div class="profile-row profile-row--full">
+            <dt>Referencia</dt>
+            <dd><%= @order.reference %></dd>
+          </div>
+          <div class="profile-row">
+            <dt>Curso</dt>
+            <dd><%= @order.course_name %></dd>
+          </div>
+          <div class="profile-row">
+            <dt>Opción</dt>
+            <dd><%= @order.option_label %></dd>
+          </div>
+          <div class="profile-row">
+            <dt>Monto</dt>
+            <dd class="inscripcion-summary__total">
+              <%= number_to_currency(@order.amount, unit: "$", precision: 2) %> <%= @order.currency %>
+            </dd>
+          </div>
+          <% if @order.invoice_number.present? %>
+            <div class="profile-row">
+              <dt>Factura</dt>
+              <dd><%= @order.invoice_number %></dd>
+            </div>
+          <% end %>
+        </dl>
+      </div>
+    <% end %>
+  </div>
+</div>

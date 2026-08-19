@@ -1,0 +1,188 @@
+<% content_for :title, "Orden #{@order.reference}" %>
+
+<div class="panel-page admin-payments-page admin-orders-page">
+  <header class="panel-banner">
+    <div>
+      <p class="panel-kicker">Administración</p>
+      <h1 class="panel-title">Detalle de la orden</h1>
+      <p class="panel-doc"><%= @order.reference %></p>
+    </div>
+    <div class="panel-banner-right">
+      <%= link_to "← Volver al listado", admin_orders_path, class: "btn btn-ghost" %>
+    </div>
+  </header>
+
+  <section class="card block">
+    <div class="block-head">
+      <h2 class="block-title">Qué se intentó pagar</h2>
+      <span class="<%= order_status_class(@order.status) %>"><%= order_status_label(@order.status) %></span>
+    </div>
+
+    <dl class="profile-list">
+      <div class="profile-row">
+        <dt>Curso</dt>
+        <dd><%= @order.course_name %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Código en Q10</dt>
+        <dd><%= @order.q10_course_code %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Opción</dt>
+        <dd><%= @order.option_label %> (<%= @order.option_code %>)</dd>
+      </div>
+      <div class="profile-row">
+        <dt>Año de edición</dt>
+        <dd><%= @order.course_edition_year.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Monto</dt>
+        <dd><%= order_amount(@order) %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Desglose IVA</dt>
+        <dd>
+          Base no gravada <%= number_to_currency(@order.amount_without_tax, unit: "$", precision: 2) %> ·
+          Base gravada <%= number_to_currency(@order.amount_with_tax, unit: "$", precision: 2) %> ·
+          IVA <%= number_to_currency(@order.tax_value, unit: "$", precision: 2) %>
+          (<%= number_to_percentage(@order.tax_rate.to_f * 100, precision: 0) %>)
+        </dd>
+      </div>
+      <div class="profile-row">
+        <dt>Fecha del intento</dt>
+        <dd><%= order_date(@order.created_at, format: :long) %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Fecha del pago</dt>
+        <dd><%= order_date(@order.transaction_at, format: :long) %></dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="card block">
+    <h2 class="block-title">Datos de facturación</h2>
+    <dl class="profile-list">
+      <div class="profile-row">
+        <dt>Nombre</dt>
+        <dd><%= @order.nombre_completo %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Identificación</dt>
+        <dd><%= @tipo_identificacion.presence || @order.identification_type_code %> · <%= @order.identification_number %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Correo</dt>
+        <dd><%= @order.email %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Teléfono</dt>
+        <dd><%= @order.phone %></dd>
+      </div>
+      <div class="profile-row profile-row--full">
+        <dt>Dirección</dt>
+        <dd><%= @order.address %> · <%= @order.city %> · <%= @order.country %></dd>
+      </div>
+      <div class="profile-row profile-row--full">
+        <dt>Número de factura</dt>
+        <dd><%= @order.invoice_number.presence || "—" %></dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="card block">
+    <h2 class="block-title">Pagomedios</h2>
+    <dl class="profile-list">
+      <div class="profile-row profile-row--full">
+        <dt>Token</dt>
+        <dd><%= @order.pagomedios_token.presence || "—" %></dd>
+      </div>
+      <div class="profile-row profile-row--full">
+        <dt>Enlace de pago</dt>
+        <dd>
+          <% if @order.pagada? %>
+            <span class="block-hint">Enlace deshabilitado — la orden ya fue pagada.</span>
+          <% elsif (enlace = order_payment_link(@order)) %>
+            <%= link_to enlace, enlace, target: "_blank", rel: "noopener noreferrer" %>
+          <% elsif @order.payment_url.present? %>
+            <%# Enlace con esquema inesperado: se muestra como texto, nunca como href. %>
+            <span class="block-hint"><%= @order.payment_url %></span>
+          <% else %>
+            —
+          <% end %>
+        </dd>
+      </div>
+      <div class="profile-row profile-row--full">
+        <dt>Referencia Pagomedios</dt>
+        <dd><%= @order.pagomedios_reference.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Código autorización</dt>
+        <dd><%= @order.authorization_code.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Tarjeta</dt>
+        <dd><%= @order.card_number_masked.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Marca</dt>
+        <dd><%= @order.card_brand.presence || "—" %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Titular</dt>
+        <dd><%= @order.card_holder.presence || "—" %></dd>
+      </div>
+      <div class="profile-row profile-row--full">
+        <dt>Mensaje</dt>
+        <dd><%= @order.pagomedios_message.presence || "—" %></dd>
+      </div>
+      <% if @order.error_message.present? %>
+        <div class="profile-row profile-row--full">
+          <dt>Error</dt>
+          <dd><%= @order.error_message %></dd>
+        </div>
+      <% end %>
+      <% if @order.pagomedios_payload.present? %>
+        <div class="profile-row profile-row--full">
+          <dt>Payload del webhook</dt>
+          <dd><pre class="admin-payments-json"><%= JSON.pretty_generate(@order.pagomedios_payload) %></pre></dd>
+        </div>
+      <% end %>
+    </dl>
+  </section>
+
+  <section class="card block">
+    <h2 class="block-title">Reporte al CRM</h2>
+    <dl class="profile-list">
+      <div class="profile-row">
+        <dt>Estado</dt>
+        <dd><span class="<%= order_crm_class(@order) %>"><%= order_crm_label(@order) %></span></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Fecha del reporte</dt>
+        <dd><%= order_date(@order.crm_reported_at, format: :long) %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Tag aplicado</dt>
+        <dd><%= @order.crm_tag.presence || @order.tag_crm %></dd>
+      </div>
+      <div class="profile-row">
+        <dt>Contacto en el CRM</dt>
+        <dd><%= @order.crm_contact_id.presence || "—" %></dd>
+      </div>
+      <% if @order.crm_error.present? %>
+        <div class="profile-row profile-row--full">
+          <dt>Motivo / error</dt>
+          <dd><%= @order.crm_error %></dd>
+        </div>
+      <% end %>
+      <% if @order.crm_response.present? %>
+        <div class="profile-row profile-row--full">
+          <dt>Respuesta almacenada</dt>
+          <dd><pre class="admin-payments-json"><%= JSON.pretty_generate(@order.crm_response) %></pre></dd>
+        </div>
+      <% end %>
+    </dl>
+  </section>
+
+  <footer class="panel-footer">© CLEV · Panel de inscripciones</footer>
+</div>

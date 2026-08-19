@@ -15,6 +15,8 @@ gem "turbo-rails"
 # Hotwire's modest JavaScript framework [https://stimulus.hotwired.dev]
 gem "stimulus-rails"
 gem "dotenv", require: "dotenv/load"
+# Export CSV del panel de órdenes. Desde Ruby 3.4 `csv` dejó de ser default gem y debe declararse.
+gem "csv"
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"

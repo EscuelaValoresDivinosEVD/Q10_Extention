@@ -1,0 +1,157 @@
+<% content_for :title, "Órdenes de inscripción" %>
+
+<div class="panel-page admin-payments-page admin-orders-page">
+  <header class="panel-banner">
+    <div>
+      <p class="panel-kicker">Administración</p>
+      <h1 class="panel-title">Órdenes de inscripción</h1>
+      <p class="panel-doc">
+        <%= pluralize(@total, "orden", "órdenes") %>
+        <%= @filtro.aplicado? ? "con los filtros aplicados" : "en total" %>
+      </p>
+    </div>
+    <div class="panel-banner-right">
+      <%= link_to "Ver pagos de deudas", admin_payments_path, class: "btn btn-ghost" %>
+    </div>
+  </header>
+
+  <% if @filtro.errores.any? %>
+    <div class="flash alert" role="alert"><%= @filtro.errores.to_sentence %></div>
+  <% end %>
+
+  <section class="card block admin-orders-filters" aria-label="Filtros">
+    <%= form_with url: admin_orders_path, method: :get, data: { turbo: false }, class: "admin-orders-filters__form" do %>
+      <div class="field">
+        <label for="estado">Estado</label>
+        <select name="estado" id="estado">
+          <option value="">Todos</option>
+          <% Order::STATUSES.each do |estado| %>
+            <option value="<%= estado %>" <%= "selected" if @filtro.estado == estado %>>
+              <%= order_status_label(estado) %>
+            </option>
+          <% end %>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="curso">Curso</label>
+        <select name="curso" id="curso">
+          <option value="">Todos</option>
+          <% @cursos.each do |nombre, codigo| %>
+            <option value="<%= codigo %>" <%= "selected" if @filtro.curso == codigo %>><%= nombre %></option>
+          <% end %>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="desde">Desde</label>
+        <input type="date" name="desde" id="desde" value="<%= @filtro.desde_raw %>" />
+      </div>
+
+      <div class="field">
+        <label for="hasta">Hasta</label>
+        <input type="date" name="hasta" id="hasta" value="<%= @filtro.hasta_raw %>" />
+      </div>
+
+      <div class="field">
+        <label for="crm">Reporte CRM</label>
+        <select name="crm" id="crm">
+          <option value="">Todos</option>
+          <% OrderFilter::CRM_ESTADOS.each do |estado_crm| %>
+            <option value="<%= estado_crm %>" <%= "selected" if @filtro.crm == estado_crm %>>
+              <%= estado_crm.humanize %>
+            </option>
+          <% end %>
+        </select>
+      </div>
+
+      <div class="admin-orders-filters__actions">
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+        <%= link_to "Limpiar", admin_orders_path, class: "btn btn-ghost" %>
+        <%= link_to "Exportar CSV",
+                    admin_orders_path(request.query_parameters.merge(format: :csv)),
+                    class: "btn btn-primary",
+                    data: { turbo: false } %>
+      </div>
+    <% end %>
+  </section>
+
+  <section class="card block admin-payments-summary" aria-label="Resumen por estado">
+    <% Order::STATUSES.each do |estado| %>
+      <div class="admin-payments-summary__item">
+        <span class="<%= order_status_class(estado) %>"><%= order_status_label(estado) %></span>
+        <strong><%= @resumen[estado].to_i %></strong>
+      </div>
+    <% end %>
+  </section>
+
+  <section class="card block">
+    <% if @ordenes.empty? %>
+      <p class="block-text">
+        <%= @filtro.aplicado? ? "No hay órdenes que coincidan con los filtros." : "Aún no hay órdenes de inscripción registradas." %>
+      </p>
+    <% else %>
+      <div class="admin-payments-table-wrap">
+        <table class="admin-payments-table">
+          <thead>
+            <tr>
+              <th scope="col">Referencia</th>
+              <th scope="col">Curso</th>
+              <th scope="col">Opción</th>
+              <th scope="col">Monto</th>
+              <th scope="col">Estado</th>
+              <th scope="col">Contacto</th>
+              <th scope="col">Intento</th>
+              <th scope="col">Pago</th>
+              <th scope="col">CRM</th>
+              <th scope="col"><span class="visually-hidden">Detalle</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @ordenes.each do |order| %>
+              <tr>
+                <td class="admin-payments-table__reference"><%= order.reference %></td>
+                <td><%= order.course_name %></td>
+                <td><%= order.option_label %></td>
+                <td><%= order_amount(order) %></td>
+                <td>
+                  <span class="<%= order_status_class(order.status) %>"><%= order_status_label(order.status) %></span>
+                </td>
+                <td>
+                  <%= order.nombre_completo %><br />
+                  <span class="block-hint"><%= order.email %></span>
+                </td>
+                <td><%= order_date(order.created_at) %></td>
+                <td><%= order_date(order.transaction_at) %></td>
+                <td class="admin-payments-table__q10-status">
+                  <span class="<%= order_crm_class(order) %>"><%= order_crm_label(order) %></span>
+                </td>
+                <td>
+                  <%= link_to "Ver", admin_order_path(order), class: "btn btn-ghost admin-payments-table__link" %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <% if @total_paginas > 1 %>
+        <nav class="admin-orders-pagination" aria-label="Paginación">
+          <% if @pagina > 1 %>
+            <%= link_to "← Anterior",
+                        admin_orders_path(request.query_parameters.merge(pagina: @pagina - 1)),
+                        class: "btn btn-ghost" %>
+          <% end %>
+          <span class="admin-orders-pagination__info">Página <%= @pagina %> de <%= @total_paginas %></span>
+          <% if @pagina < @total_paginas %>
+            <%= link_to "Siguiente →",
+                        admin_orders_path(request.query_parameters.merge(pagina: @pagina + 1)),
+                        class: "btn btn-ghost" %>
+          <% end %>
+        </nav>
+      <% end %>
+    <% end %>
+  </section>
+
+  <footer class="panel-footer">© CLEV · Panel de inscripciones</footer>
+</div>

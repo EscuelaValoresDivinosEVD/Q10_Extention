@@ -1,0 +1,15 @@
+<% content_for :title, "No pudimos confirmar la disponibilidad" %>
+
+<div class="inscripcion-page">
+  <div class="inscripcion-card inscripcion-empty">
+    <div class="inscripcion-result-icon inscripcion-result-icon--pending" aria-hidden="true">…</div>
+    <h1 class="inscripcion-title">No pudimos confirmar la disponibilidad de este curso</h1>
+    <p class="hint">Intenta de nuevo en unos minutos.</p>
+
+    <div class="actions">
+      <%= link_to "Reintentar", inscripcion_curso_path(codigo: @course_code), class: "btn btn-primary", data: { turbo: false } %>
+    </div>
+
+    <p class="hint">Si el problema persiste, escríbenos a <%= mail_to "info@clev.org" %>.</p>
+  </div>
+</div>
