@@ -1,0 +1,21 @@
+# Integración GoHighLevel (CRM) — credenciales solo por variables de entorno (ver .env.example).
+# Mismo patrón que config/q10.yml: deshabilitada en test para que ningún test salga a la red.
+default: &default
+  enabled: <%= ENV.fetch("GHL_ENABLED", "true") == "true" %>
+  base_url: <%= ENV.fetch("GHL_API_BASE_URL", "https://services.leadconnectorhq.com") %>
+  api_version: <%= ENV.fetch("GHL_API_VERSION", "v3") %>
+  token: <%= ENV["GHL_TOKEN"] %>
+  location_id: <%= ENV["GHL_LOCATION_ID"] %>
+  source: <%= ENV.fetch("GHL_CONTACT_SOURCE", "CLEV inscripción") %>
+  open_timeout: <%= ENV.fetch("GHL_API_OPEN_TIMEOUT", 10) %>
+  read_timeout: <%= ENV.fetch("GHL_API_READ_TIMEOUT", 25) %>
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+  enabled: false
+
+production:
+  <<: *default

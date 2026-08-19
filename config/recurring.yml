@@ -17,9 +17,17 @@ production:
     class: Q10::ReconcilePendingReportsJob
     queue: default
     schedule: at 3am every day
+  reconcile_pending_crm_reports:
+    class: ReconcilePendingCrmReportsJob
+    queue: default
+    schedule: every hour at minute 25
 
 development:
   reconcile_q10_pending_reports:
     class: Q10::ReconcilePendingReportsJob
     queue: default
     schedule: at 3am every day
+  reconcile_pending_crm_reports:
+    class: ReconcilePendingCrmReportsJob
+    queue: default
+    schedule: every hour at minute 25

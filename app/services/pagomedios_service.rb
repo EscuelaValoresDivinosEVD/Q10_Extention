@@ -26,23 +26,31 @@ class PagomediosService
   # @param description [String] Descripción del pago (opcional)
   # @param notify_url [String] URL absoluta del webhook
   # @param return_url [String] URL a la que Pagomedios puede redirigir al usuario tras pagar (opcional)
+  # @param generate_invoice [Integer] 1 para que Pagomedios emita factura electrónica (default 0)
+  # @param tax_breakdown [Hash] desglose IVA { amount_with_tax:, amount_without_tax:, tax_value: }
+  # @param customer [Hash] datos de facturación del comprador (solo con generate_invoice: 1)
   # @return [Hash] { success: true, payment_url: "...", id: "..." } o { success: false, error: "..." }
-  def create_payment(amount:, currency: "USD", reference: nil, description: nil, notify_url: nil, return_url: nil)
+  #
+  # Los tres últimos parámetros son ADITIVOS (los introduce el funnel de inscripción, que sí
+  # factura): omitidos, el body queda idéntico al que ya envía el flujo de deudas.
+  def create_payment(amount:, currency: "USD", reference: nil, description: nil, notify_url: nil, return_url: nil,
+                     generate_invoice: 0, tax_breakdown: nil, customer: nil)
     reference ||= "PAGO-#{Time.current.to_i}"
     description ||= "Pago"
 
     Rails.logger.info "[Pagomedios] create_payment params: amount=#{amount}, currency=#{currency}, reference=#{reference}, description=#{description}"
 
     amount_f = amount.to_f.round(2)
+    desglose = normalized_tax_breakdown(tax_breakdown, amount_f)
     # API requiere: amount = amount_with_tax + amount_without_tax + tax_value (todos con 2 decimales)
     body = {
       integration: true,
-      generate_invoice: 0,
+      generate_invoice: generate_invoice.to_i,
       description: description.to_s,
       amount: amount_f,
-      amount_with_tax: 0,
-      amount_without_tax: amount_f,
-      tax_value: 0,
+      amount_with_tax: desglose[:amount_with_tax],
+      amount_without_tax: desglose[:amount_without_tax],
+      tax_value: desglose[:tax_value],
       has_cards: 1,
       has_de_una: 0,
       has_paypal: 0,
@@ -51,6 +59,7 @@ class PagomediosService
     }
     body[:notify_url] = notify_url if notify_url.present?
     body[:return_url] = return_url if return_url.present?
+    body.merge!(customer.symbolize_keys) if customer.present?
 
     endpoint = "#{BASE_URL}/payment-links"
     Rails.logger.info "[Pagomedios] POST #{endpoint} body=#{body.to_json}"
@@ -67,6 +76,19 @@ class PagomediosService
   end
 
   private
+
+  # Sin desglose explícito se conserva el comportamiento histórico: todo el monto va como base no
+  # gravada (es lo que hace el flujo de deudas, que va con generate_invoice: 0).
+  def normalized_tax_breakdown(breakdown, amount_f)
+    return { amount_with_tax: 0, amount_without_tax: amount_f, tax_value: 0 } if breakdown.blank?
+
+    datos = breakdown.symbolize_keys
+    {
+      amount_with_tax: datos[:amount_with_tax].to_f.round(2),
+      amount_without_tax: datos[:amount_without_tax].to_f.round(2),
+      tax_value: datos[:tax_value].to_f.round(2)
+    }
+  end
 
   def post(path, body)
     uri = URI(path)

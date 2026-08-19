@@ -1,0 +1,44 @@
+# ⛔ PENDIENTE DE DEFINICIÓN — Opciones de inscripción y su precio.
+#
+# Q10 NO expone el precio de las opciones de inscripción (contrato de GET /v1/cursos confirmado
+# 2026-07-21: solo disponibilidad, cupos y fechas). De dónde sale el monto —¿configuración de
+# CLEV?, ¿otro endpoint de Q10?, ¿un parámetro del sitio externo?— es una decisión abierta del
+# cliente/PM (ver data-model/README.md → "Bloqueante crítico").
+#
+# Este archivo existe SOLO para que el contrato del dato quede documentado y ejercitable, y para
+# que sea IMPOSIBLE cobrar mientras la definición no exista: mientras `cursos` esté vacío, el
+# checkout muestra "opciones no disponibles" y nunca crea una orden ni llama a Pagomedios.
+#
+# ⚠️ No completar esta configuración sin la definición formal del cliente: un precio inventado
+# acá se cobra de verdad y se factura al SRI.
+#
+# Forma esperada del dato (ejemplo comentado, NO habilitado):
+#
+#   cursos:
+#     EJO1:                       # Codigo del curso en Q10
+#       - codigo: RESERVA         # option_code de la orden
+#         tipo: reserva           # option_kind: reserva | parcial | completo
+#         etiqueta: "Reserva de cupo"
+#         monto: 10.00
+#       - codigo: PARCIAL
+#         tipo: parcial
+#         etiqueta: "Pago parcial"
+#         monto: 20.00
+#       - codigo: COMPLETO
+#         tipo: completo
+#         etiqueta: "Pago completo"
+#         monto: 40.00
+#
+# `moneda` es opcional por opción (default USD). El IVA no se configura: es 0% fijo (ADR-004).
+
+default: &default
+  cursos: {}
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+
+production:
+  <<: *default

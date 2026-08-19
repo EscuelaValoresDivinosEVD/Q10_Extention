@@ -47,6 +47,24 @@ module Q10
       raise Error, "Q10 devolvió una respuesta no válida."
     end
 
+    # Oferta académica disponible (disponibilidad: estado, cupos, fechas, matrícula en línea).
+    # Q10 NO expone precio en este endpoint — el monto de la inscripción sale de otra fuente.
+    def fetch_cursos_disponibles(limit: 50, offset: 1, estado: nil)
+      raise Error, "La integración Q10 está deshabilitada." unless enabled?
+
+      uri = URI("#{base_url}/cursos")
+      query = { Limit: limit, Offset: offset }
+      query[:Estado] = estado if estado.present?
+      uri.query = URI.encode_www_form(query)
+
+      handle_response(perform_with_fallbacks(uri, method: "GET") { |attempt_uri, headers| perform_get(attempt_uri, headers) })
+      data = parsed_body.is_a?(Array) ? parsed_body.select { |item| item.is_a?(Hash) } : []
+
+      { success: true, data: data, status: @last_response.code.to_i }
+    rescue JSON::ParserError
+      raise Error, "Q10 devolvió una respuesta no válida."
+    end
+
     # Preferir Codigo_persona: en Q10 /creditos suele devolver resultados con ese
     # filtro y vacío (o incompleto) solo con Numero_identificacion.
     def fetch_creditos(numero_identificacion: nil, codigo_persona: nil, consecutivo_periodo: nil)
